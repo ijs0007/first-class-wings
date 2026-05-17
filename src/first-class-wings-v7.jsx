@@ -929,6 +929,14 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
       {step===1&&(
         <div className="sc">
           <div className="step-title">1. <span className="or">Pick Your Combo</span></div>
+          {cart.length>0&&(
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(245,166,35,.06)",border:"1px solid rgba(245,166,35,.2)",borderRadius:7,padding:"8px 12px",marginBottom:10}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--or)",letterSpacing:.5}}>
+                🛒 {cart.length} item{cart.length!==1?"s":""} in your order — ${cartTotal}
+              </div>
+              <button className="tray-btn" style={{fontSize:10,padding:"5px 10px"}} onClick={()=>navigate("checkout")}>Go to Checkout →</button>
+            </div>
+          )}
           <div className="combo-grid">
             {COMBOS.map(c=>(
               <div key={c.id} className={`ccard ${b.combo?.id===c.id?"sel":""}`} onClick={()=>setB(p=>({...p,combo:c,flavor2:null,hh:false}))}>
@@ -1031,7 +1039,11 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <div style={{flex:1}}><div className="oi-name">{b.combo?.label}</div><div className="oi-detail">{b.hh&&b.flavor2?`${b.flavor1?.name} / ${b.flavor2?.name}`:b.flavor1?.name} · Qty {b.qty}</div></div>
               <div className="oi-price">${itemSub}</div>
-              <button className="oi-remove" title="Remove" onClick={()=>{setB(fresh());setStep(1);}}>✕</button>
+              <button className="oi-remove" title="Remove" onClick={()=>{
+                setB(fresh());
+                if(cart.length>0){ setStep(1); } // has other items — go back to pick new item
+                else { setStep(1); } // no items — go to start
+              }}>✕</button>
             </div>
           </div>
           {cart.length>0&&(
