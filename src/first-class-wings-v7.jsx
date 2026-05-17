@@ -391,6 +391,7 @@ select.finput{appearance:none}
 .b-confirmed{background:rgba(41,128,185,.16);color:var(--blue)}
 .b-ready{background:rgba(39,174,96,.16);color:var(--ok)}
 .b-done{background:rgba(255,255,255,.04);color:#3a3a3a}
+.b-rain{background:rgba(41,128,185,.12);color:#78b8d8}
 .odet{font-size:10px;color:var(--gr);margin-bottom:2px}
 .odet strong{color:var(--wh)}
 .oprice{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--or);margin:4px 0 2px}
@@ -582,7 +583,8 @@ export default function App(){
   async function upStatus(id,s){
     setOrders(p=>p.map(o=>o.id===id?{...o,status:s}:o));
     try{ await sb.patch("orders",`?id=eq.${id}`,{status:s}); }catch(e){ console.error(e); }
-    showToast(s==="ready"?"🍗 Ready!":"✅ Done!");
+    const toasts={ready:"🍗 Ready!",done:"✅ Done!",new:"↩ Back to New",raincheck:"🌧️ Rain Checked!"};
+    showToast(toasts[s]||"Updated!");
   }
 
   async function confirmOrder(id){
@@ -1159,8 +1161,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
     </div>
   );
 
-  const statusLabel=(s)=>({new:"🔥 New",confirmed:"✅ Confirmed",ready:"🍗 Ready",done:"Done"}[s]||s);
-  const badgeClass=(s)=>({new:"b-new",confirmed:"b-confirmed",ready:"b-ready",done:"b-done"}[s]||"b-done");
+  const [unconfirmModal,setUnconfirmModal] = useState(null); // order id
+  const [raincheckModal,setRaincheckModal] = useState(null); // order object
+  const statusLabel=(s)=>({new:"🔥 New",confirmed:"✅ Confirmed",ready:"🍗 Ready",done:"Done",raincheck:"🌧️ Rain Check"}[s]||s);
+  const badgeClass=(s)=>({new:"b-new",confirmed:"b-confirmed",ready:"b-ready",done:"b-done",raincheck:"b-rain"}[s]||"b-done");
   const prevMonth=()=>setCalMonth(p=>p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1});
   const nextMonth=()=>setCalMonth(p=>p.m===11?{y:p.y+1,m:0}:{y:p.y,m:p.m+1});
 
@@ -1227,6 +1231,19 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                   <div className="odet">📱 {o.phone} · 🕐 {o.time}</div>
                   {o.notes&&<div className="odet">📝 <em>{o.notes}</em></div>}
                   <div className="oprice">${o.total}</div>
+
+                  {/* CONTACT BUTTONS — always visible */}
+                  <div style={{display:"flex",gap:6,marginBottom:7}}>
+                    <a className="abtn" href={`tel:${o.phone}`}
+                      style={{flex:1,textAlign:"center",background:"rgba(39,174,96,.1)",border:"1px solid rgba(39,174,96,.3)",color:"#70c890",textDecoration:"none"}}>
+                      📞 Call
+                    </a>
+                    <a className="abtn" href={`sms:${o.phone}&body=Hey ${o.firstName}! This is First Class Wings reaching out about your order ${o.orderNum}.`}
+                      style={{flex:1,textAlign:"center",background:"rgba(41,128,185,.1)",border:"1px solid rgba(41,128,185,.3)",color:"#78b8d8",textDecoration:"none"}}>
+                      💬 Text
+                    </a>
+                  </div>
+
                   {o.status==="new"&&(
                     <div className="confirm-box" onClick={()=>confirmOrder(o.id)}>
                       <div className="cb-check"/>
@@ -1234,11 +1251,19 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                     </div>
                   )}
                   <div className="oacts">
-                    {o.status==="confirmed"&&<button className="abtn a-ok" onClick={()=>upStatus(o.id,"ready")}>🍗 Mark Ready</button>}
+                    {o.status==="confirmed"&&<>
+                      <button className="abtn" style={{background:"rgba(192,57,43,.1)",border:"1px solid rgba(192,57,43,.3)",color:"#d09080"}}
+                        onClick={()=>setUnconfirmModal(o.id)}>↩ Unconfirm</button>
+                      <button className="abtn a-ok" onClick={()=>upStatus(o.id,"ready")}>🍗 Mark Ready</button>
+                    </>}
                     {o.status==="ready"&&<>
                       <a className="abtn a-sms" href={`sms:${o.phone}&body=Hey ${o.firstName}! Your First Class Wings are READY 🔥🍗 Order ${o.orderNum} — Pickup at: ${settings.pickupAddress}`}>📱 Text Ready</a>
                       <button className="abtn a-done" onClick={()=>upStatus(o.id,"done")}>✅ Done</button>
                     </>}
+                    {["new","confirmed","ready"].includes(o.status)&&(
+                      <button className="abtn" style={{background:"rgba(41,128,185,.08)",border:"1px solid rgba(41,128,185,.25)",color:"#78b8d8",marginTop:4,width:"100%",justifyContent:"center"}}
+                        onClick={()=>setRaincheckModal(o)}>🌧️ Rain Check Order</button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1423,6 +1448,52 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
 
           <div style={{height:20}}/>
         </>
+      )}
+
+      {/* UNCONFIRM MODAL */}
+      {unconfirmModal&&(
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-title" style={{color:"var(--rd)"}}>⚠️ Unconfirm Order?</div>
+            <div className="modal-body">
+              <strong>Payment has already been received for this order.</strong>
+              <br/><br/>
+              By unconfirming, you are responsible for either:
+              <br/>• Fulfilling the order at a later time, OR
+              <br/>• Returning the customer's payment promptly
+              <br/><br/>
+              Please reach out to the customer directly to work something out before proceeding.
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={()=>setUnconfirmModal(null)}>Cancel</button>
+              <button className="btn btn-danger" onClick={()=>{upStatus(unconfirmModal,"new");setUnconfirmModal(null);}}>I Understand — Unconfirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RAIN CHECK MODAL */}
+      {raincheckModal&&(
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-title" style={{color:"#78b8d8"}}>🌧️ Rain Check Order?</div>
+            <div className="modal-body">
+              This will mark <strong>{raincheckModal.orderNum}</strong> as a Rain Check.
+              <br/><br/>
+              The order details and payment are preserved. Two SMS messages will open — one for you, one for the customer — with the full order summary and order number for both your records.
+              <br/><br/>
+              <strong>The customer keeps their order number</strong> and can reference it when they reorder.
+            </div>
+            <div className="modal-actions" style={{flexDirection:"column",gap:6}}>
+              <a className="btn btn-blue" style={{textDecoration:"none",textAlign:"center"}}
+                href={`sms:${raincheckModal.phone}&body=Hey ${raincheckModal.firstName}! Your First Class Wings order has been rain-checked 🌧️%0A%0AOrder: ${raincheckModal.orderNum}%0AItems: ${raincheckModal.cartItems?.map(i=>`${i.combo.label} (${i.flavorLabel})`).join(", ")}%0ATotal: $${raincheckModal.total}%0A%0AYour payment is on file — just reorder anytime and reference this order number. We got you! 🍗👑`}
+                onClick={()=>{ setTimeout(()=>{ upStatus(raincheckModal.id,"raincheck"); setRaincheckModal(null); },500); }}>
+                📱 Text Customer & Rain Check
+              </a>
+              <button className="btn btn-ghost" onClick={()=>setRaincheckModal(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
