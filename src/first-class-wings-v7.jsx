@@ -1,0 +1,1373 @@
+import { useState, useEffect, useRef } from "react";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MENU IMAGE — replace this URL after hosting your flyer image
+// Upload to Cloudinary (free): https://cloudinary.com
+// or Imgur: https://imgur.com/upload
+// Then paste the direct image URL here:
+const MENU_IMAGE_URL = "https://res.cloudinary.com/doqb37ujx/image/upload/IMG_9040_wksvez.png";
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FLAVORS = [
+  { id:"sweet-spicy",          name:"Sweet Spicy",          emoji:"🔥", desc:"Sweet with a spicy kick",     color:"#c0392b" },
+  { id:"buffalo",              name:"Buffalo",              emoji:"🐂", desc:"Classic buffalo heat",         color:"#922b21" },
+  { id:"lemon-pepper",         name:"Lemon Pepper",         emoji:"🍋", desc:"Zesty lemon, bold pepper",     color:"#b8860b" },
+  { id:"sweet-lemon-pepper",   name:"Sweet Lemon Pepper",   emoji:"✨", desc:"Sweet, zesty, peppery finish", color:"#1a6b3c" },
+  { id:"buffalo-lemon-pepper", name:"Buffalo Lemon Pepper", emoji:"💥", desc:"Buffalo heat + lemon pepper",  color:"#7d3c98" },
+];
+const COMBOS = [
+  { id:"test", label:"🧪 Test Order",      wings:1,  price:1,  halfHalf:false },
+  { id:"6pc",  label:"6 Wings & Fries",   wings:6,  price:12, halfHalf:false },
+  { id:"8pc",  label:"8 Wings & Fries",   wings:8,  price:14, halfHalf:false },
+  { id:"10pc", label:"10 Wings & Fries",  wings:10, price:16, halfHalf:true  },
+];
+const DAYS       = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+const DAY_LABELS = { monday:"Mon",tuesday:"Tue",wednesday:"Wed",thursday:"Thu",friday:"Fri",saturday:"Sat",sunday:"Sun" };
+const DAY_FULL   = { monday:"Monday",tuesday:"Tuesday",wednesday:"Wednesday",thursday:"Thursday",friday:"Friday",saturday:"Saturday",sunday:"Sunday" };
+const DAY_SHORT  = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+const MONTH_NAMES= ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DEFAULT_HOURS = { open:"11:00", close:"20:00", slotMins:30 };
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function genOrderNum(){ const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s="FCW-"; for(let i=0;i<5;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
+function fmtTime(d){ return d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}); }
+function fmtDate(d){ return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}); }
+function dateKey(y,m,d){ return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
+function todayKey(){ const n=new Date(); return dateKey(n.getFullYear(),n.getMonth(),n.getDate()); }
+function buildPayNote(o){ return `Order ${o.orderNum}\n${o.lastName}, ${o.firstName} | ${o.phone}\nPlaced: ${o.time}\nTotal: $${o.total}`; }
+function formatPhone(raw){ const d=raw.replace(/\D/g,"").slice(0,10); if(d.length<=3) return d; if(d.length<=6) return `(${d.slice(0,3)}) ${d.slice(3)}`; return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; }
+function cashAppLink(tag,amt){ return `https://cash.app/${tag.replace("$","")}/${amt}`; }
+function venmoLink(user,amt,note){ return `https://venmo.com/${user}?txn=pay&amount=${amt}&note=${encodeURIComponent(note)}`; }
+
+function generateTimeSlots(open,close,slotMins){
+  const slots=[];
+  const [oh,om]=open.split(":").map(Number);
+  const [ch,cm]=close.split(":").map(Number);
+  let cur=oh*60+om;
+  const end=ch*60+cm;
+  while(cur<=end){
+    const h=Math.floor(cur/60), m=cur%60;
+    const ampm=h>=12?"PM":"AM", h12=h%12||12;
+    slots.push(`${h12}:${String(m).padStart(2,"0")} ${ampm}`);
+    cur+=slotMins;
+  }
+  return slots;
+}
+
+function useLocalStorage(key,init){
+  const [val,setVal]=useState(()=>{ try{ const s=localStorage.getItem(key); return s?JSON.parse(s):init; }catch{ return init; } });
+  useEffect(()=>{ try{ localStorage.setItem(key,JSON.stringify(val)); }catch{} },[key,val]);
+  return [val,setVal];
+}
+
+let _tt;
+function useToast(){ const [t,setT]=useState(null); const show=(m)=>{ setT(m); clearTimeout(_tt); _tt=setTimeout(()=>setT(null),3200); }; return [t,show]; }
+
+// ── CSS ───────────────────────────────────────────────────────────────────────
+const CSS=`
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blk:#0a0a0a;--dark:#0f0f0f;--card:#181818;--card2:#202020;--bdr:#252525;
+  --or:#f5a623;--ord:#d4881a;--rd:#c0392b;--rdd:#922b21;
+  --wh:#f5f0e8;--gr:#666;--ok:#27ae60;--blue:#2980b9;
+}
+body{background:var(--blk);color:var(--wh);font-family:'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+.app{min-height:100vh;padding-bottom:88px}
+
+/* NAV */
+.nav{background:#0a0a0a;border-bottom:2px solid var(--or);padding:0 14px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:300}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:19px;color:var(--or);letter-spacing:2px;line-height:1;cursor:pointer}
+.nav-logo span{color:var(--wh)}
+.nav-tabs{display:flex;gap:3px}
+.ntab{background:none;border:none;color:var(--gr);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:5px 10px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all .2s}
+.ntab.active{background:var(--or);color:var(--blk)}
+.ntab:hover:not(.active){color:var(--wh)}
+
+/* BACK BAR */
+.back-bar{display:flex;align-items:center;gap:8px;padding:8px 13px;background:#0d0d0d;border-bottom:1px solid var(--bdr);position:sticky;top:56px;z-index:200}
+.back-btn{background:none;border:1px solid var(--bdr);color:var(--gr);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:4px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:4px}
+.back-btn:hover{border-color:var(--or);color:var(--or)}
+.fwd-btn{background:none;border:1px solid var(--bdr);color:var(--gr);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:4px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:4px;margin-left:auto}
+.fwd-btn:hover{border-color:var(--or);color:var(--or)}
+.fwd-btn:disabled{opacity:.3;cursor:not-allowed}
+.bar-title{font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:1px;color:var(--gr);text-transform:uppercase}
+
+/* HERO - full width centered */
+.hero{background:#0a0a0a;border-bottom:1px solid var(--bdr);padding:32px 16px 26px;position:relative;overflow:hidden;text-align:center}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,rgba(245,166,35,.08) 0%,transparent 65%)}
+.hero::after{content:'';position:absolute;bottom:0;left:10%;right:10%;height:1px;background:linear-gradient(to right,transparent,rgba(245,166,35,.3),transparent)}
+.hero-left{position:relative;z-index:1}
+.hero-eyebrow{font-family:'Oswald',sans-serif;font-size:9px;color:var(--or);letter-spacing:6px;text-transform:uppercase;margin-bottom:6px;opacity:.8}
+.hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px,13vw,88px);line-height:.88;letter-spacing:4px}
+.hero-title .or{color:var(--or)}
+.hero-badge{display:inline-block;background:var(--rd);color:var(--wh);font-family:'Oswald',sans-serif;font-size:9px;letter-spacing:2px;padding:3px 12px;border-radius:2px;margin-top:11px;text-transform:uppercase}
+
+/* MENU OVERLAY — sexy smooth slide up over everything */
+.menu-overlay{position:fixed;inset:0;z-index:999;pointer-events:none;isolation:isolate}
+.menu-overlay.open{pointer-events:all}
+.menu-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.0);backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px);transition:background .45s ease,backdrop-filter .45s ease,-webkit-backdrop-filter .45s ease}
+.menu-overlay.open .menu-backdrop{background:rgba(0,0,0,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.menu-panel{position:absolute;bottom:0;left:0;right:0;height:88vh;border-radius:22px 22px 0 0;overflow:hidden;transform:translateY(102%);transition:transform .5s cubic-bezier(.25,.85,.25,1);will-change:transform}
+.menu-overlay.open .menu-panel{transform:translateY(0)}
+.menu-glass{position:absolute;inset:0;background:rgba(6,6,6,.6);backdrop-filter:blur(30px) saturate(1.8);-webkit-backdrop-filter:blur(30px) saturate(1.8);border-top:1px solid rgba(245,166,35,.3);border-left:1px solid rgba(245,166,35,.08);border-right:1px solid rgba(245,166,35,.08)}
+.menu-inner{position:relative;z-index:1;height:100%;display:flex;flex-direction:column}
+.menu-handle{width:40px;height:4px;background:rgba(245,166,35,.4);border-radius:2px;margin:14px auto 0;cursor:pointer}
+.menu-hdr{display:flex;align-items:center;justify-content:space-between;padding:13px 16px 11px;border-bottom:1px solid rgba(245,166,35,.1)}
+.menu-hdr-title{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--or);letter-spacing:2px}
+.menu-hdr-sub{font-size:10px;color:var(--gr);margin-top:1px}
+.menu-close{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--gr);width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all .2s;flex-shrink:0}
+.menu-close:hover{background:rgba(245,166,35,.15);border-color:rgba(245,166,35,.3);color:var(--or)}
+.menu-scroll{flex:1;overflow-y:auto;padding:16px 14px;-webkit-overflow-scrolling:touch}
+.menu-scroll img{width:100%;max-width:460px;display:block;margin:0 auto;border-radius:10px;border:1px solid rgba(245,166,35,.12);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+
+/* AVAIL STRIP */
+.avail-strip{background:var(--card);border-bottom:1px solid var(--bdr);padding:7px 13px;display:flex;align-items:center;gap:7px;overflow-x:auto;scrollbar-width:none}
+.avail-strip::-webkit-scrollbar{display:none}
+.avail-label{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:1px;color:var(--or);text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.avail-days{display:flex;gap:3px}
+.aday{font-family:'Oswald',sans-serif;font-size:10px;padding:2px 7px;border-radius:3px;text-transform:uppercase;white-space:nowrap}
+.aday.open{background:rgba(245,166,35,.12);color:var(--or);border:1px solid rgba(245,166,35,.35)}
+.aday.closed{background:rgba(255,255,255,.02);color:#2a2a2a;border:1px solid #1a1a1a}
+
+/* STEPS */
+.step-bar{padding:12px 13px 0;display:flex;align-items:center}
+.step-circle{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:13px;transition:all .3s;flex-shrink:0}
+.step-circle.done{background:var(--ok);color:#fff}
+.step-circle.active{background:var(--or);color:var(--blk)}
+.step-circle.future{background:#1c1c1c;color:#333;border:1px solid #282828}
+.step-lbl{font-family:'Oswald',sans-serif;font-size:8px;letter-spacing:.5px;text-transform:uppercase;color:var(--gr);white-space:nowrap;margin-top:3px}
+.step-lbl.active{color:var(--or)}
+.step-conn{height:1px;flex:1;background:#1e1e1e;margin-bottom:11px}
+.step-conn.done{background:var(--ok)}
+
+/* CONTENT */
+.sc{padding:12px 13px}
+.step-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--wh);margin-bottom:10px}
+.step-title .or{color:var(--or)}
+
+/* COMBO CARDS with food image headers */
+.combo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}
+.ccard{background:var(--card);border:2px solid var(--bdr);border-radius:8px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
+.ccard:hover{border-color:var(--or);transform:translateY(-2px)}
+.ccard.sel{border-color:var(--or);background:rgba(245,166,35,.06)}
+.ccard-img{height:46px;overflow:hidden;position:relative}
+.ccard-img img{width:100%;height:100%;object-fit:cover;object-position:center top;filter:brightness(.7)}
+.ccard-img-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.5) 100%)}
+.ccard-img-fallback{width:100%;height:100%;background:linear-gradient(135deg,#3d1800,#1a0800);display:flex;align-items:center;justify-content:center;font-size:22px}
+.ccard-body{padding:7px 5px;text-align:center}
+.c-big{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--or);line-height:1}
+.c-lbl{font-family:'Oswald',sans-serif;font-size:8px;color:var(--wh);letter-spacing:.5px;text-transform:uppercase;margin:1px 0}
+.c-price{font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--wh);background:var(--rd);display:inline-block;padding:1px 6px;border-radius:3px;margin-top:1px}
+.c-check{position:absolute;top:4px;right:4px;width:14px;height:14px;background:var(--ok);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;z-index:2}
+.hh-badge{display:inline-block;background:rgba(245,166,35,.15);color:var(--or);font-family:'Oswald',sans-serif;font-size:8px;padding:1px 4px;border-radius:2px;margin-top:1px;text-transform:uppercase}
+
+/* FLAVORS */
+.flist{display:flex;flex-direction:column;gap:6px}
+.fitem{background:var(--card);border:1.5px solid var(--bdr);border-radius:8px;padding:9px 11px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:9px}
+.fitem:hover{border-color:var(--or)}
+.fitem.sel{border-color:var(--or);background:rgba(245,166,35,.06)}
+.fitem.sel2{border-color:#5dade2;background:rgba(93,173,226,.06)}
+.f-swatch{width:32px;height:32px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.f-name{font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;color:var(--or);text-transform:uppercase;letter-spacing:.7px}
+.fitem.sel2 .f-name{color:#5dade2}
+.f-desc{font-size:10px;color:var(--gr);margin-top:1px}
+.f-radio{width:13px;height:13px;border-radius:50%;border:2px solid var(--bdr);flex-shrink:0;margin-left:auto;transition:all .2s}
+.fitem.sel .f-radio{background:var(--or);border-color:var(--or)}
+.fitem.sel2 .f-radio{background:#5dade2;border-color:#5dade2}
+.hh-divider{display:flex;align-items:center;gap:6px;margin:8px 0}
+.hh-line{flex:1;height:1px;background:var(--bdr)}
+.hh-txt{font-family:'Oswald',sans-serif;font-size:9px;letter-spacing:1px;color:var(--gr);text-transform:uppercase}
+.hh-toggle{background:var(--card);border:1.5px solid var(--bdr);border-radius:7px;padding:9px 11px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.hh-toggle.on{border-color:rgba(245,166,35,.45)}
+.pill-radio{width:13px;height:13px;border-radius:50%;border:2px solid var(--bdr);flex-shrink:0;margin-left:auto}
+.hh-toggle.on .pill-radio{background:var(--or);border-color:var(--or)}
+
+/* QTY */
+.qty-row{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;margin-bottom:9px}
+.qty-lbl{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.7px;text-transform:uppercase;flex:1;line-height:1.3}
+.qty-lbl small{display:block;font-size:9px;color:var(--gr);margin-top:2px;font-family:'Inter',sans-serif;letter-spacing:0;text-transform:none}
+.qty-btn{width:30px;height:30px;border-radius:50%;border:2px solid var(--or);background:none;color:var(--or);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.qty-btn:hover{background:var(--or);color:var(--blk)}
+.qty-num{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--wh);min-width:24px;text-align:center}
+
+/* TIME / DAY PICKER */
+.time-picker-card{background:var(--card);border:1.5px solid var(--bdr);border-radius:8px;padding:12px;margin-bottom:10px;transition:border-color .2s}
+.time-picker-card.has-selection{border-color:rgba(245,166,35,.45)}
+.tp-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.tp-icon{font-size:16px}
+.tp-title{font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;flex:1}
+.tp-sub{font-size:10px;color:var(--gr);margin-top:1px}
+.tp-row{margin-bottom:9px}
+.tp-label{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:1px;color:var(--or);text-transform:uppercase;margin-bottom:5px}
+.day-chips{display:flex;gap:4px;flex-wrap:wrap}
+.day-chip{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:.5px;padding:4px 9px;border-radius:4px;cursor:pointer;transition:all .2s;text-transform:uppercase;border:1px solid var(--bdr);background:none;color:var(--gr)}
+.day-chip.avail{color:var(--wh);border-color:#333}
+.day-chip.sel{background:var(--or);color:var(--blk);border-color:var(--or)}
+.day-chip.special{border-color:rgba(245,166,35,.4);color:var(--or)}
+.day-chip.special.sel{background:rgba(245,166,35,.15);color:var(--or);border-color:var(--or)}
+.time-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.time-slot{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:.5px;padding:6px 4px;border-radius:4px;cursor:pointer;transition:all .2s;text-transform:uppercase;border:1px solid var(--bdr);background:none;color:var(--gr);text-align:center}
+.time-slot:hover{border-color:rgba(245,166,35,.4);color:var(--wh)}
+.time-slot.sel{background:var(--or);color:var(--blk);border-color:var(--or)}
+.special-day-note{background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.2);border-radius:6px;padding:9px 10px;margin-top:7px;font-size:11px;color:rgba(245,166,35,.8);line-height:1.5}
+
+/* ORDER REVIEW */
+.order-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.ol-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px}
+.ol-count{background:var(--rd);color:var(--wh);font-family:'Bebas Neue',sans-serif;font-size:11px;padding:2px 8px;border-radius:9px}
+.order-items{display:flex;flex-direction:column;gap:5px;margin-bottom:9px}
+.oi{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:9px 11px;display:flex;align-items:center;gap:8px;transition:all .25s}
+.oi.removing{opacity:.25;transform:scale(.97)}
+.oi-name{font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;color:var(--or);text-transform:uppercase;letter-spacing:.5px}
+.oi-detail{font-size:10px;color:var(--gr);margin-top:1px}
+.oi-price{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--wh);flex-shrink:0}
+.oi-remove{background:none;border:1px solid #282828;color:#3a3a3a;font-size:12px;cursor:pointer;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.oi-remove:hover{border-color:var(--rd);color:var(--rd)}
+.total-bar{background:var(--card);border:1px solid var(--bdr);border-left:3px solid var(--or);border-radius:6px;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.total-lbl{font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:1px}
+.total-val{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--or)}
+.add-another-btn{width:100%;padding:10px;border:2px dashed rgba(245,166,35,.35);border-radius:7px;background:rgba(245,166,35,.03);color:var(--or);font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:1.5px;cursor:pointer;text-transform:uppercase;transition:all .2s;margin-bottom:7px}
+.add-another-btn:hover{border-color:var(--or);background:rgba(245,166,35,.07)}
+
+/* FORM */
+.sec-hdr{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.sec-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px}
+.sec-line{flex:1;height:1px;background:linear-gradient(to right,var(--or),transparent)}
+.name-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.form-grp{margin-bottom:9px}
+.flabel{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:1px;color:var(--or);text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.req{color:var(--rd);font-size:11px}
+.finput{width:100%;background:var(--card);border:1px solid var(--bdr);border-radius:6px;padding:9px 11px;color:var(--wh);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .2s}
+.finput:focus{border-color:var(--or)}
+.finput.err{border-color:var(--rd)}
+.finput::placeholder{color:#2e2e2e}
+textarea.finput{resize:vertical;min-height:54px}
+select.finput{appearance:none}
+.ferr{font-size:9px;color:var(--rd);margin-top:2px;font-family:'Oswald',sans-serif;letter-spacing:.5px}
+
+/* PAYMENT */
+.pay-opts{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.pay-opt{background:var(--card);border:2px solid var(--bdr);border-radius:8px;padding:10px 11px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:9px}
+.pay-opt:hover{border-color:var(--or)}
+.pay-opt.sel{border-color:var(--or);background:rgba(245,166,35,.05)}
+.pay-name{font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;color:var(--wh)}
+.pay-sub{font-size:10px;color:var(--gr);margin-top:1px}
+.pay-radio{width:13px;height:13px;border-radius:50%;border:2px solid var(--bdr);flex-shrink:0;margin-left:auto}
+.pay-opt.sel .pay-radio{background:var(--or);border-color:var(--or)}
+
+/* PAY ACTION BUTTONS */
+.pay-actions{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.pa-btn{display:flex;align-items:center;gap:8px;padding:11px 12px;border-radius:7px;border:none;cursor:pointer;font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:1px;text-transform:uppercase;text-decoration:none;transition:all .2s;width:100%}
+.pa-btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.pa-cashapp{background:#00d632;color:#000}
+.pa-venmo{background:#3d95ce;color:#fff}
+.pa-zelle{background:#6d1ed4;color:#fff}
+.pa-amount{font-family:'Bebas Neue',sans-serif;font-size:16px;margin-left:auto}
+
+/* PAY NOTE */
+.pay-note-card{background:#0c0c0c;border:1.5px solid var(--or);border-radius:8px;padding:11px;margin-bottom:10px}
+.pn-title{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:1.5px;color:var(--or);text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.pn-dot{width:5px;height:5px;background:var(--or);border-radius:50%;flex-shrink:0}
+.pn-desc{font-size:10px;color:var(--gr);margin-bottom:8px;line-height:1.5}
+.pn-desc strong{color:#b09050}
+.pn-body{background:#0a0a0a;border:1px solid #222;border-radius:5px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--wh);line-height:1.7;white-space:pre;margin-bottom:8px;overflow-x:auto}
+.copy-btn{width:100%;padding:8px;border:none;border-radius:5px;font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1.5px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px}
+.copy-idle{background:rgba(245,166,35,.1);color:var(--or);border:1.5px solid rgba(245,166,35,.35)}
+.copy-idle:hover{background:rgba(245,166,35,.18)}
+.copy-done{background:var(--ok);color:#fff;border:none}
+
+/* BANNERS */
+.warn-banner{background:rgba(192,57,43,.09);border:1.5px solid rgba(192,57,43,.38);border-radius:6px;padding:9px 11px;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start}
+.info-banner{background:rgba(41,128,185,.07);border:1.5px solid rgba(41,128,185,.28);border-radius:6px;padding:9px 11px;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start}
+.ok-banner{background:rgba(39,174,96,.07);border:1.5px solid rgba(39,174,96,.28);border-radius:6px;padding:9px 11px;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start}
+.ban-ico{font-size:13px;flex-shrink:0;margin-top:1px}
+.ban-txt{font-size:11px;line-height:1.5}
+.warn-banner .ban-txt{color:#d89080}
+.info-banner .ban-txt{color:#78b8d8}
+.ok-banner .ban-txt{color:#70c890}
+.ban-txt strong{opacity:.9}
+
+/* RECEIPT */
+.receipt{padding:16px 13px;max-width:420px;margin:0 auto}
+.receipt-hdr{text-align:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--bdr)}
+.receipt-logo{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--or);letter-spacing:2px}
+.receipt-ordernum{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:500;color:var(--or);background:rgba(245,166,35,.07);border:1.5px solid rgba(245,166,35,.22);border-radius:5px;padding:5px 13px;display:inline-block;letter-spacing:3px;margin:5px 0 3px}
+.receipt-date{font-size:10px;color:var(--gr)}
+.rs-card{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:11px;margin-bottom:9px}
+.rs-title{font-family:'Oswald',sans-serif;font-size:9px;letter-spacing:1.5px;color:var(--or);text-transform:uppercase;margin-bottom:7px}
+.rs-row{display:flex;justify-content:space-between;padding:3px 0;font-size:11px;border-bottom:1px solid var(--bdr)}
+.rs-row:last-child{border:none}
+.rs-lbl{color:var(--gr)}
+.rs-val{color:var(--wh);text-align:right;max-width:58%}
+.rs-row.total{padding-top:7px;font-family:'Oswald',sans-serif;font-size:13px;color:var(--or)}
+.receipt-pending{background:rgba(245,166,35,.05);border:1px solid rgba(245,166,35,.18);border-radius:5px;padding:7px 11px;text-align:center;font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:1px;color:var(--or);text-transform:uppercase;margin-bottom:9px}
+.screenshot-note{text-align:center;font-size:10px;color:var(--gr);margin-bottom:10px;line-height:1.5}
+.screenshot-note strong{color:rgba(245,166,35,.7)}
+
+/* BUTTONS */
+.btn{width:100%;padding:11px;border:none;border-radius:7px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px}
+.btn+.btn{margin-top:6px}
+.btn-or{background:linear-gradient(135deg,var(--or),var(--ord));color:var(--blk)}
+.btn-or:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(245,166,35,.22)}
+.btn-or:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:none;border:1px solid var(--bdr);color:var(--gr);font-size:12px;letter-spacing:1px}
+.btn-ghost:hover{border-color:var(--or);color:var(--or)}
+.btn-danger{background:none;border:1px solid rgba(192,57,43,.45);color:var(--rd);font-size:12px;letter-spacing:1px}
+.btn-danger:hover{background:rgba(192,57,43,.09)}
+.btn-blue{background:rgba(41,128,185,.15);border:1px solid rgba(41,128,185,.4);color:#78b8d8;font-size:12px;letter-spacing:1px}
+.btn-blue:hover{background:rgba(41,128,185,.22)}
+
+/* TRAY */
+.tray{position:fixed;bottom:0;left:0;right:0;background:#0d0d0d;border-top:2px solid var(--or);padding:9px 13px;z-index:150;display:flex;align-items:center;gap:9px}
+.tray-badge{background:var(--rd);color:var(--wh);font-family:'Bebas Neue',sans-serif;font-size:12px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tray-info{flex:1}
+.tray-line{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:.5px;color:var(--gr);text-transform:uppercase}
+.tray-total{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--or);line-height:1.1}
+.tray-btn{background:var(--or);color:var(--blk);border:none;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;padding:8px 14px;border-radius:5px;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.tray-btn:hover{background:var(--ord)}
+.tray-btn:disabled{opacity:.3;cursor:not-allowed}
+
+/* MENU FULLSCREEN */
+.menu-screen{background:var(--blk);min-height:calc(100vh - 56px)}
+.menu-img-wrap{width:100%;display:flex;align-items:flex-start;justify-content:center;padding:12px 13px}
+.menu-img-wrap img{width:100%;max-width:500px;border-radius:8px;border:1px solid var(--bdr)}
+.menu-placeholder{width:100%;max-width:500px;background:var(--card);border:2px dashed rgba(245,166,35,.3);border-radius:8px;padding:40px 20px;text-align:center}
+.menu-placeholder-icon{font-size:48px;margin-bottom:12px}
+.menu-placeholder-title{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--or);letter-spacing:2px;margin-bottom:6px}
+.menu-placeholder-sub{font-size:12px;color:var(--gr);line-height:1.6;max-width:280px;margin:0 auto}
+
+/* OWNER */
+.dash{padding:11px}
+.dash-title{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--or);letter-spacing:2px;margin-bottom:1px}
+.dash-sub{font-size:11px;color:var(--gr);margin-bottom:12px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--bdr);border-radius:6px;padding:9px 5px;text-align:center}
+.stat-n{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--or)}
+.stat-l{font-family:'Oswald',sans-serif;font-size:9px;color:var(--gr);letter-spacing:1px;text-transform:uppercase}
+.dtabs{display:flex;gap:0;margin-bottom:11px;background:var(--card);border-radius:6px;padding:2px;border:1px solid var(--bdr)}
+.dtab{flex:1;padding:6px 2px;text-align:center;font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:.8px;text-transform:uppercase;border-radius:4px;border:none;background:none;color:var(--gr);cursor:pointer;transition:all .2s}
+.dtab.active{background:var(--or);color:var(--blk)}
+.orders-list{display:flex;flex-direction:column;gap:8px}
+.ocard{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:11px}
+.ocard.status-new{border-left:4px solid var(--or)}
+.ocard.status-confirmed{border-left:4px solid var(--blue)}
+.ocard.status-ready{border-left:4px solid var(--ok)}
+.ocard.status-done{border-left:4px solid #1c1c1c;opacity:.48}
+.onum-chip{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:var(--or);background:rgba(245,166,35,.09);border:1px solid rgba(245,166,35,.25);border-radius:3px;padding:1px 7px;letter-spacing:1px;display:inline-block;margin-bottom:5px}
+.otop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.oname{font-family:'Oswald',sans-serif;font-size:13px;font-weight:600}
+.obadge{font-family:'Oswald',sans-serif;font-size:9px;letter-spacing:1px;padding:2px 6px;border-radius:3px;text-transform:uppercase}
+.b-new{background:rgba(245,166,35,.16);color:var(--or)}
+.b-confirmed{background:rgba(41,128,185,.16);color:var(--blue)}
+.b-ready{background:rgba(39,174,96,.16);color:var(--ok)}
+.b-done{background:rgba(255,255,255,.04);color:#3a3a3a}
+.odet{font-size:10px;color:var(--gr);margin-bottom:2px}
+.odet strong{color:var(--wh)}
+.oprice{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--or);margin:4px 0 2px}
+.confirm-box{background:rgba(41,128,185,.06);border:1.5px solid rgba(41,128,185,.27);border-radius:7px;padding:9px;margin:6px 0;display:flex;align-items:flex-start;gap:8px;cursor:pointer;transition:all .2s}
+.confirm-box:hover{border-color:var(--blue)}
+.confirm-box.checked{background:rgba(39,174,96,.06);border-color:rgba(39,174,96,.4)}
+.cb-check{width:18px;height:18px;border-radius:3px;border:2px solid rgba(41,128,185,.5);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .2s;margin-top:1px}
+.confirm-box.checked .cb-check{background:var(--ok);border-color:var(--ok);color:#fff}
+.cb-title{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.5px;font-weight:600;text-transform:uppercase}
+.confirm-box.checked .cb-title{color:var(--ok)}
+.cb-sub{font-size:9px;color:var(--gr);margin-top:2px;line-height:1.4}
+.oacts{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.abtn{padding:5px 9px;border-radius:4px;border:none;font-family:'Oswald',sans-serif;font-size:9px;letter-spacing:1px;cursor:pointer;text-transform:uppercase;transition:all .2s;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+.a-ok{background:var(--ok);color:#fff}
+.a-done{background:#1e1e1e;color:var(--gr)}
+.a-sms{background:rgba(245,166,35,.1);color:var(--or);border:1px solid rgba(245,166,35,.35)}
+.abtn:hover{filter:brightness(1.15)}
+
+/* CALENDAR */
+.cal-toggle-row{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px}
+.cal-toggle-btn{padding:7px;text-align:center;font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;border-radius:5px;border:1px solid var(--bdr);background:none;color:var(--gr);cursor:pointer;transition:all .2s}
+.cal-toggle-btn.active{background:var(--or);color:var(--blk);border-color:var(--or)}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:9px}
+.wday{background:var(--card);border:1px solid var(--bdr);border-radius:4px;padding:6px 2px;text-align:center;cursor:pointer;transition:all .2s}
+.wday.on{border-color:var(--or);background:rgba(245,166,35,.09)}
+.wday-name{font-family:'Oswald',sans-serif;font-size:8px;letter-spacing:.5px;text-transform:uppercase}
+.wday.on .wday-name{color:var(--or)}
+.wday:not(.on) .wday-name{color:#2e2e2e}
+.wdot{width:4px;height:4px;border-radius:50%;margin:3px auto 0}
+.wday.on .wdot{background:var(--or)}
+.month-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.month-nav{background:none;border:1px solid var(--bdr);color:var(--gr);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.month-nav:hover{border-color:var(--or);color:var(--or)}
+.month-name{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--wh)}
+.month-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:3px}
+.dow-lbl{font-family:'Oswald',sans-serif;font-size:8px;text-align:center;color:var(--gr);text-transform:uppercase;padding:2px 0}
+.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.mday{min-height:30px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;transition:all .2s;border:1px solid transparent}
+.mday.empty{cursor:default}
+.mday.today{border-color:rgba(245,166,35,.4)!important;color:var(--or)}
+.mday.open{background:rgba(245,166,35,.14);border-color:rgba(245,166,35,.45);color:var(--or);font-weight:600}
+.mday:not(.empty):not(.open):hover{background:rgba(255,255,255,.04);border-color:#2a2a2a}
+.mday.past{opacity:.35;cursor:default}
+
+/* HOURS SETTINGS */
+.hours-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px}
+.blast-section{background:rgba(41,128,185,.05);border:1.5px solid rgba(41,128,185,.25);border-radius:7px;padding:11px;margin-bottom:9px}
+.blast-title{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1.5px;color:var(--blue);text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.blast-sub{font-size:11px;color:var(--gr);margin-bottom:9px;line-height:1.5}
+.blast-preview{background:var(--blk);border:1px solid #222;border-radius:5px;padding:9px 10px;font-size:11px;color:var(--gr);line-height:1.6;margin-bottom:8px;font-style:italic}
+.customer-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;max-height:80px;overflow-y:auto}
+.cust-chip{background:rgba(41,128,185,.12);border:1px solid rgba(41,128,185,.28);color:#78b8d8;font-family:'Oswald',sans-serif;font-size:9px;padding:2px 7px;border-radius:3px;letter-spacing:.5px}
+
+/* SETTINGS */
+.scard{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:11px;margin-bottom:9px}
+.stitle{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:2px;color:var(--or);text-transform:uppercase;margin-bottom:9px}
+.clear-warn{background:rgba(192,57,43,.07);border:1.5px solid rgba(192,57,43,.3);border-radius:6px;padding:9px 11px;margin-bottom:8px;font-size:10px;color:#b08080;line-height:1.5}
+.clear-warn strong{color:#d09090}
+.note{font-size:10px;color:var(--gr);margin-top:4px;line-height:1.5}
+.note a{color:var(--or)}
+.empty{text-align:center;padding:26px 13px;color:var(--gr)}
+.empty-i{font-size:34px;margin-bottom:6px}
+.empty-m{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:400;display:flex;align-items:center;justify-content:center;padding:18px}
+.modal{background:#181818;border:1.5px solid var(--rd);border-radius:9px;padding:18px;max-width:300px;width:100%}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--rd);letter-spacing:2px;margin-bottom:7px}
+.modal-body{font-size:11px;color:var(--gr);line-height:1.6;margin-bottom:14px}
+.modal-body strong{color:var(--wh)}
+.modal-actions{display:flex;gap:7px}
+.modal-actions .btn{flex:1}
+
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--or);color:var(--blk);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:8px 16px;border-radius:5px;z-index:500;white-space:nowrap;animation:tin .22s ease;max-width:86vw;text-align:center}
+@keyframes tin{from{opacity:0;transform:translateX(-50%) translateY(7px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+`;
+
+// ── ROOT ───────────────────────────────────────────────────────────────────────
+export default function App(){
+  const [view,setView]     = useState("customer");
+  const [orders,setOrders] = useLocalStorage("fcw_orders",[]);
+  const [openDates,setOpenDates] = useLocalStorage("fcw_open_dates",{});
+  const [settings,setSettings]   = useLocalStorage("fcw_settings",{
+    cashapp:"$FirstClassWings", venmo:"FirstClassWings", zelle:"912-227-4387",
+    pickupAddress:"Text owner for pickup address", ownerPin:"1234",
+    hours: DEFAULT_HOURS,
+  });
+  const [toast,showToast] = useToast();
+  const [ownerPin,setOwnerPin]             = useState("");
+  const [ownerUnlocked,setOwnerUnlocked]   = useState(false);
+
+  // Persistent customer state — survives tab switches
+  const [cart,setCart]                       = useLocalStorage("fcw_cart",[]);
+  const [buildStep,setBuildStep]             = useLocalStorage("fcw_step",1);
+  const [building,setBuilding]               = useLocalStorage("fcw_building",{combo:null,flavor1:null,flavor2:null,hh:false,qty:1});
+  const [custScreen,setCustScreen]           = useLocalStorage("fcw_cust_screen","build");
+  const [screenHistory,setScreenHistory]     = useLocalStorage("fcw_screen_hist",["build"]);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const isDateOpen = (key) => !!openDates[key];
+  const toggleDate = (key) => { setOpenDates(p=>{ const n={...p}; n[key]?delete n[key]:(n[key]=true); return n; }); };
+
+  // navigation stack
+  function navigate(screen){
+    setCustScreen(screen);
+    setScreenHistory(h=>[...h,screen]);
+  }
+  function goBack(){
+    setScreenHistory(h=>{ if(h.length<=1) return h; const nh=h.slice(0,-1); setCustScreen(nh[nh.length-1]); return nh; });
+  }
+  const canGoBack = screenHistory.length > 1;
+
+  function getOpenDayNamesThisWeek(){
+    const now=new Date(); const dow=now.getDay();
+    return DAYS.filter((_,i)=>{ const off=(i+1)-dow; const d=new Date(now); d.setDate(now.getDate()+off); return isDateOpen(dateKey(d.getFullYear(),d.getMonth(),d.getDate())); });
+  }
+
+  const addOrder=(o)=>setOrders(p=>[{...o,id:Date.now(),status:"new"},...p]);
+  const confirmOrder=(id)=>{ setOrders(p=>p.map(o=>o.id===id?{...o,status:"confirmed"}:o)); const o=orders.find(x=>x.id===id); if(o) showToast(`✅ ${o.orderNum} confirmed!`); };
+  const upStatus=(id,s)=>{ setOrders(p=>p.map(o=>o.id===id?{...o,status:s}:o)); showToast(s==="ready"?"🍗 Ready!":"✅ Done!"); };
+  const loginOwner=()=>{ if(ownerPin===settings.ownerPin){setOwnerUnlocked(true);showToast("Welcome back! 👑");}else showToast("Wrong PIN!"); };
+  const clearCompleted=()=>{ setOrders(p=>p.filter(o=>o.status!=="done")); showToast("Cleared!"); };
+
+  const newCt        = orders.filter(o=>o.status==="new").length;
+  const confirmedCt  = orders.filter(o=>o.status==="confirmed").length;
+  const todayTot     = orders.filter(o=>["confirmed","ready","done"].includes(o.status)).reduce((s,o)=>s+o.total,0);
+  const openDayNames = getOpenDayNamesThisWeek();
+
+  return(
+    <div className="app">
+      <style>{CSS}</style>
+      <nav className="nav">
+        <div className="nav-logo" onClick={()=>{setView("customer");navigate("build");}}>FIRST <span>CLASS</span> WINGS</div>
+        <div className="nav-tabs">
+          <button className={`ntab ${view==="customer"?"active":""}`} onClick={()=>setView("customer")}>Order</button>
+          <button className="ntab" onClick={()=>setMenuOpen(true)}>Menu</button>
+          <button className={`ntab ${view==="owner"?"active":""}`} onClick={()=>setView("owner")}>
+            Owner{newCt>0?` (${newCt})`:""}
+          </button>
+        </div>
+      </nav>
+
+      {view==="customer" &&
+        <CustomerView
+          openDayNames={openDayNames} openDates={openDates} settings={settings}
+          addOrder={addOrder} showToast={showToast}
+          cart={cart} setCart={setCart}
+          buildStep={buildStep} setBuildStep={setBuildStep}
+          building={building} setBuilding={setBuilding}
+          screen={custScreen} navigate={navigate} goBack={goBack} canGoBack={canGoBack}
+          screenHistory={screenHistory} setScreenHistory={setScreenHistory} setCustScreen={setCustScreen}
+        />}
+      {view==="owner" &&
+        <OwnerView
+          unlocked={ownerUnlocked} pin={ownerPin} setPin={setOwnerPin} onLogin={loginOwner}
+          orders={orders} newCt={newCt} confirmedCt={confirmedCt} todayTot={todayTot}
+          openDates={openDates} toggleDate={toggleDate} isDateOpen={isDateOpen}
+          settings={settings} setSettings={setSettings}
+          confirmOrder={confirmOrder} upStatus={upStatus}
+          showToast={showToast} clearCompleted={clearCompleted}
+        />}
+
+      {toast && <div className="toast">{toast}</div>}
+
+      {/* MENU OVERLAY */}
+      <div className={`menu-overlay ${menuOpen?"open":""}`}>
+        <div className="menu-backdrop" onClick={()=>setMenuOpen(false)}/>
+        <div className="menu-panel">
+          <div className="menu-glass"/>
+          <div className="menu-inner">
+            <div className="menu-handle" onClick={()=>setMenuOpen(false)}/>
+            <div className="menu-scroll">
+              <div style={{position:"relative"}}>
+                <button onClick={()=>setMenuOpen(false)} style={{
+                  position:"absolute",top:12,right:12,zIndex:10,
+                  background:"rgba(0,0,0,.7)",border:"1.5px solid rgba(245,166,35,.5)",
+                  color:"var(--or)",width:34,height:34,borderRadius:"50%",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  cursor:"pointer",fontSize:15,fontWeight:"bold",backdropFilter:"blur(4px)"
+                }}>✕</button>
+                <img src="https://res.cloudinary.com/doqb37ujx/image/upload/IMG_9040_wksvez.png"
+                  alt="First Class Wings Menu"
+                  style={{touchAction:"pinch-zoom",width:"100%",maxWidth:460,display:"block",margin:"0 auto",borderRadius:10,border:"1px solid rgba(245,166,35,.12)",boxShadow:"0 20px 60px rgba(0,0,0,.5)"}}/>
+              </div>
+              <div style={{height:24}}/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MENU VIEW ─────────────────────────────────────────────────────────────────
+// ── CUSTOMER VIEW ─────────────────────────────────────────────────────────────
+function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,setCart,buildStep,setBuildStep,building,setBuilding,screen,navigate,goBack,canGoBack,screenHistory,setScreenHistory,setCustScreen}){
+  const [form,setForm]         = useLocalStorage("fcw_form",{firstName:"",lastName:"",phone:"",notes:""});
+  const [errors,setErrors]     = useState({});
+  const [pay,setPay]           = useLocalStorage("fcw_pay",null);
+  const [orderTime,setOrderTime]= useLocalStorage("fcw_ordertime",{day:null,time:null,isSpecial:false});
+  const [lastOrder,setLastOrder]= useLocalStorage("fcw_last_order",null);
+  const [removing,setRemoving] = useState(null);
+  const [copied,setCopied]     = useState(false);
+
+  const b=building; const setB=setBuilding;
+  const step=buildStep; const setStep=setBuildStep;
+
+  function fresh(){ return {combo:null,flavor1:null,flavor2:null,hh:false,qty:1}; }
+
+  const cartTotal = cart.reduce((s,i)=>s+i.subtotal,0);
+
+  // Days available: open dates this week + any future open date (for special)
+  const now=new Date();
+  const thisWeekOpenDays = DAYS.filter((_,i)=>{
+    const off=(i+1)-now.getDay(); const d=new Date(now); d.setDate(now.getDate()+off);
+    const k=dateKey(d.getFullYear(),d.getMonth(),d.getDate());
+    return openDates[k] && d >= new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  });
+
+  function buildItem(){
+    const flavorLabel=b.hh&&b.flavor2?`${b.flavor1.name} / ${b.flavor2.name}`:b.flavor1.name;
+    return{id:Date.now()+Math.random(),combo:b.combo,flavorLabel,qty:b.qty,subtotal:b.combo.price*b.qty};
+  }
+  function addAndContinue(){ setCart(p=>[...p,buildItem()]); showToast("Added! 🔥"); setB(fresh()); setStep(1); }
+  function removeItem(id){ setRemoving(id); setTimeout(()=>{setCart(p=>p.filter(i=>i.id!==id));setRemoving(null);},250); }
+
+  function goCheckout(){
+    if(step>=3&&b.combo&&b.flavor1){setCart(p=>[...p,buildItem()]);setB(fresh());}
+    navigate("checkout");
+  }
+
+  function validate(){
+    const e={};
+    if(!form.firstName.trim()) e.firstName="Required";
+    if(!form.lastName.trim()) e.lastName="Required";
+    if(form.phone.replace(/\D/g,"").length<10) e.phone="Valid 10-digit number required";
+    if(!pay) e.pay="Select a payment method";
+    setErrors(e); return Object.keys(e).length===0;
+  }
+
+  function submitOrder(){
+    if(!validate()) return;
+    const n=new Date(); const orderNum=genOrderNum(); const time=fmtTime(n); const date=fmtDate(n);
+    const order={cartItems:cart,total:cartTotal,orderNum,time,date,...form,pay,orderTime};
+    addOrder(order); setLastOrder(order); navigate("receipt");
+    setCart([]); setB(fresh()); setStep(1);
+    setForm({firstName:"",lastName:"",phone:"",notes:""}); setPay(null);
+    setOrderTime({day:null,time:null,isSpecial:false});
+    showToast("Order placed! 🍗");
+  }
+
+  function copyNote(note){ navigator.clipboard.writeText(note).then(()=>{setCopied(true);showToast("Copied! 📋");setTimeout(()=>setCopied(false),3500);}).catch(()=>showToast("Long-press the note to copy")); }
+
+  const canNext3 = b.flavor1&&(!(b.hh&&b.combo?.halfHalf)||b.flavor2);
+  const itemSub  = b.combo?b.combo.price*b.qty:0;
+  const STEPS    = ["Combo","Flavor","Qty","Order"];
+
+  // ── RECEIPT ──
+  if(screen==="receipt"&&lastOrder){
+    const payNote=buildPayNote(lastOrder);
+    return(
+      <div>
+        <div className="back-bar">
+          <span className="bar-title">Receipt</span>
+        </div>
+        <div className="receipt">
+          <div className="receipt-hdr">
+            <div className="receipt-logo">👑 First Class Wings</div>
+            <div className="receipt-ordernum">{lastOrder.orderNum}</div>
+            <div className="receipt-date">{lastOrder.date} · {lastOrder.time}</div>
+          </div>
+          <div className="receipt-pending">⏳ Awaiting Payment + Owner Confirmation</div>
+          <div className="warn-banner">
+            <span className="ban-ico">⚠️</span>
+            <div className="ban-txt"><strong>Send payment now to lock in your order.</strong> Your order is not confirmed until payment is received and the owner verifies it.</div>
+          </div>
+          <div className="pay-actions">
+            <a className="pa-btn pa-cashapp" href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
+              <span>💚</span><span style={{flex:1}}>Pay with Cash App</span><span className="pa-amount">${lastOrder.total}</span>
+            </a>
+            <a className="pa-btn pa-venmo" href={venmoLink(settings.venmo,lastOrder.total,payNote)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
+              <span>💜</span><span style={{flex:1}}>Pay with Venmo</span><span className="pa-amount">${lastOrder.total}</span>
+            </a>
+            <a className="pa-btn pa-zelle" href="https://enroll.zellepay.com/" target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
+              <span>📱</span><span style={{flex:1}}>Zelle: {settings.zelle}</span><span className="pa-amount">${lastOrder.total}</span>
+            </a>
+          </div>
+          <div className="pay-note-card">
+            <div className="pn-title"><div className="pn-dot"/>Step 2 — Add This Note to Your Payment</div>
+            <div className="pn-desc" style={{marginTop:5}}><strong>Important:</strong> Copy and paste this into the memo/description field when you pay. This connects your payment to your order.</div>
+            <div className="pn-body">{payNote}</div>
+            <button className={`copy-btn ${copied?"copy-done":"copy-idle"}`} onClick={()=>copyNote(payNote)}>
+              {copied?"✓ Copied!":"📋 Tap to Copy Payment Note"}
+            </button>
+          </div>
+          <div className="rs-card">
+            <div className="rs-title">Order Summary</div>
+            {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
+            {lastOrder.orderTime?.day&&<div className="rs-row"><span className="rs-lbl">Requested For</span><span className="rs-val">{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>}
+            {lastOrder.orderTime?.isSpecial&&<div className="rs-row"><span className="rs-lbl">Type</span><span className="rs-val">Special Day Request</span></div>}
+            {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
+            <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
+          </div>
+          <div className="rs-card">
+            <div className="rs-title">Customer Info</div>
+            <div className="rs-row"><span className="rs-lbl">Name</span><span className="rs-val">{lastOrder.firstName} {lastOrder.lastName}</span></div>
+            <div className="rs-row"><span className="rs-lbl">Phone</span><span className="rs-val">{lastOrder.phone}</span></div>
+            <div className="rs-row"><span className="rs-lbl">Payment</span><span className="rs-val">Cash App / Venmo / Zelle</span></div>
+          </div>
+          <div className="screenshot-note">📸 <strong>Screenshot this receipt</strong> as proof of your order</div>
+          <div className="info-banner">
+            <span className="ban-ico">📱</span>
+            <div className="ban-txt">Once confirmed, you'll get a text at <strong>{lastOrder.phone}</strong>.</div>
+          </div>
+          <button className="btn btn-or" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>Place Another Order</button>
+          <div style={{height:20}}/>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CHECKOUT ──
+  if(screen==="checkout"){
+    const previewNote=buildPayNote({firstName:form.firstName||"First",lastName:form.lastName||"Last",phone:form.phone||"(000) 000-0000",orderNum:"FCW-XXXXX",time:fmtTime(new Date()),total:cartTotal});
+    return(
+      <div>
+        <div className="back-bar">
+          {canGoBack&&<button className="back-btn" onClick={goBack}>◀ Back</button>}
+          <span className="bar-title">Checkout</span>
+        </div>
+        <div className="sc">
+          <div className="sec-hdr"><div className="sec-title">Your Order</div><div className="sec-line"/></div>
+          <div className="order-items">
+            {cart.map(item=>(
+              <div key={item.id} className={`oi ${removing===item.id?"removing":""}`}>
+                <div style={{flex:1}}>
+                  <div className="oi-name">{item.combo.label}</div>
+                  <div className="oi-detail">{item.flavorLabel} · Qty {item.qty}</div>
+                </div>
+                <div className="oi-price">${item.subtotal}</div>
+                <button className="oi-remove" title="Remove item" onClick={()=>{
+                  if(cart.length===1){ goBack(); }
+                  else { removeItem(item.id); }
+                }}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="total-bar"><span className="total-lbl">Order Total</span><span className="total-val">${cartTotal}</span></div>
+
+          <div className="sec-hdr"><div className="sec-title">Your Info</div><div className="sec-line"/></div>
+          <div className="name-row">
+            <div className="form-grp">
+              <label className="flabel">First Name <span className="req">*</span></label>
+              <input className={`finput ${errors.firstName?"err":""}`} placeholder="First" value={form.firstName} onChange={e=>{setForm(f=>({...f,firstName:e.target.value}));setErrors(er=>({...er,firstName:""}));}}/>
+              {errors.firstName&&<div className="ferr">{errors.firstName}</div>}
+            </div>
+            <div className="form-grp">
+              <label className="flabel">Last Name <span className="req">*</span></label>
+              <input className={`finput ${errors.lastName?"err":""}`} placeholder="Last" value={form.lastName} onChange={e=>{setForm(f=>({...f,lastName:e.target.value}));setErrors(er=>({...er,lastName:""}));}}/>
+              {errors.lastName&&<div className="ferr">{errors.lastName}</div>}
+            </div>
+          </div>
+          <div className="form-grp">
+            <label className="flabel">Phone Number <span className="req">*</span></label>
+            <input className={`finput ${errors.phone?"err":""}`} type="tel" placeholder="(912) 000-0000" value={form.phone} onChange={e=>{setForm(f=>({...f,phone:formatPhone(e.target.value)}));setErrors(er=>({...er,phone:""}));}} maxLength={14}/>
+            {errors.phone&&<div className="ferr">{errors.phone}</div>}
+            <p className="note">Owner texts this number when your wings are ready 📱</p>
+          </div>
+          <div className="form-grp">
+            <label className="flabel">Special Notes <span style={{color:"var(--gr)",fontSize:9,fontWeight:400,letterSpacing:0,textTransform:"none"}}>(optional)</span></label>
+            <textarea className="finput" placeholder="Extra crispy? Sauce on side?" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+          </div>
+
+          {/* ORDER TIME + SPECIAL DAY COMBINED */}
+          <div className="sec-hdr" style={{marginTop:12}}><div className="sec-title">When Do You Want It?</div><div className="sec-line"/></div>
+          <TimeDayPicker orderTime={orderTime} setOrderTime={setOrderTime} thisWeekOpenDays={thisWeekOpenDays} settings={settings}/>
+
+          {/* PAYMENT */}
+          <div className="sec-hdr" style={{marginTop:12}}><div className="sec-title">Payment</div><div className="sec-line"/></div>
+          {errors.pay&&<div className="ferr" style={{marginBottom:7}}>{errors.pay}</div>}
+          <div className="pay-opts">
+            <div className={`pay-opt ${pay==="cashapp"?"sel":""}`} onClick={()=>{setPay("cashapp");setErrors(er=>({...er,pay:""}));}}>
+              <span style={{fontSize:19}}>💳</span>
+              <div><div className="pay-name">Cash App / Venmo / Zelle</div><div className="pay-sub">Tap to open your payment app instantly — free</div></div>
+              <div className="pay-radio"/>
+            </div>
+          </div>
+          {pay==="cashapp"&&(
+            <>
+              <div className="warn-banner">
+                <span className="ban-ico">⚠️</span>
+                <div className="ban-txt"><strong>Order won't be confirmed until payment is received.</strong> After placing, tap a payment button and include the note.</div>
+              </div>
+              <div className="pay-note-card">
+                <div className="pn-title"><div className="pn-dot"/>Payment Note Preview</div>
+                <div className="pn-desc" style={{marginTop:4}}>After placing, <strong>copy this note</strong> and paste it into the payment memo/description field.</div>
+                <div className="pn-body">{previewNote}</div>
+              </div>
+            </>
+          )}
+          <button className="btn btn-or" onClick={submitOrder}>🔥 Place Order — ${cartTotal}</button>
+          <div style={{height:20}}/>
+        </div>
+      </div>
+    );
+  }
+
+  // ── BUILD ──
+  return(
+    <div>
+      <div className="hero">
+        <div className="hero-left">
+          <div className="hero-eyebrow">★ Premium Wings · ATL Style Flavor ★</div>
+          <div className="hero-title">FIRST <span className="or">CLASS</span> WINGS</div>
+          <div className="hero-badge">Made Fresh To Order</div>
+        </div>
+      </div>
+
+      <div className="avail-strip">
+        <span className="avail-label">Open:</span>
+        <div className="avail-days">
+          {DAYS.map(d=><span key={d} className={`aday ${openDayNames.includes(d)?"open":"closed"}`}>{DAY_LABELS[d]}</span>)}
+        </div>
+      </div>
+
+      <div className="step-bar">
+        {STEPS.map((s,i)=>{
+          const n=i+1,state=n<step?"done":n===step?"active":"future";
+          return(<div key={s} style={{display:"flex",alignItems:"center",flex:1}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,flex:"none"}}>
+              <div className={`step-circle ${state}`}>{state==="done"?"✓":n}</div>
+              <div className={`step-lbl ${state==="active"?"active":""}`}>{s}</div>
+            </div>
+            {i<STEPS.length-1&&<div className={`step-conn ${n<step?"done":""}`}/>}
+          </div>);
+        })}
+      </div>
+
+      {/* STEP 1 */}
+      {step===1&&(
+        <div className="sc">
+          <div className="step-title">1. <span className="or">Pick Your Combo</span></div>
+          <div className="combo-grid">
+            {COMBOS.map(c=>(
+              <div key={c.id} className={`ccard ${b.combo?.id===c.id?"sel":""}`} onClick={()=>setB(p=>({...p,combo:c,flavor2:null,hh:false}))}>
+                {b.combo?.id===c.id&&<div className="c-check">✓</div>}
+                <div className="ccard-body" style={{padding:"14px 5px"}}>
+                  <div style={{fontSize:22,marginBottom:4}}>🍗</div>
+                  <div className="c-big">{c.wings}</div>
+                  <div className="c-lbl">Wings & Fries</div>
+                  <div className="c-price">${c.price}</div>
+                  {c.halfHalf&&<div><div className="hh-badge">Half&Half</div></div>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button className="btn btn-or" disabled={!b.combo} onClick={()=>setStep(2)}>Next: Choose Flavor →</button>
+        </div>
+      )}
+
+      {/* STEP 2 */}
+      {step===2&&(
+        <div className="sc">
+          <button className="back-btn" style={{marginBottom:10}} onClick={()=>setStep(1)}>◀ Back</button>
+          <div className="step-title">2. <span className="or">Pick Your Flavor</span></div>
+          {b.combo?.halfHalf&&(
+            <div className={`hh-toggle ${b.hh?"on":""}`} onClick={()=>setB(p=>({...p,hh:!p.hh,flavor2:null}))}>
+              <span style={{fontSize:15}}>🔀</span>
+              <div style={{flex:1}}><div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:".5px"}}>Half &amp; Half</div><div style={{fontSize:9,color:"var(--gr)",marginTop:1}}>Two flavors — one 10pc</div></div>
+              <div className="pill-radio" style={b.hh?{background:"var(--or)",borderColor:"var(--or)"}:{}}/>
+            </div>
+          )}
+          {b.hh?(
+            <>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"var(--or)",textTransform:"uppercase",marginBottom:6}}>First half</div>
+              <div className="flist" style={{marginBottom:8}}>
+                {FLAVORS.map(f=>(
+                  <div key={f.id} className={`fitem ${b.flavor1?.id===f.id?"sel":""}`} onClick={()=>setB(p=>({...p,flavor1:f,flavor2:p.flavor2?.id===f.id?null:p.flavor2}))}>
+                    <div className="f-swatch" style={{background:`${f.color}33`}}><span style={{fontSize:15}}>{f.emoji}</span></div>
+                    <div><div className="f-name">{f.name}</div><div className="f-desc">{f.desc}</div></div>
+                    <div className="f-radio"/>
+                  </div>
+                ))}
+              </div>
+              <div className="hh-divider"><div className="hh-line"/><div className="hh-txt">Second half</div><div className="hh-line"/></div>
+              <div className="flist">
+                {FLAVORS.filter(f=>f.id!==b.flavor1?.id).map(f=>(
+                  <div key={f.id} className={`fitem ${b.flavor2?.id===f.id?"sel2":""}`} onClick={()=>setB(p=>({...p,flavor2:f}))}>
+                    <div className="f-swatch" style={{background:`${f.color}33`}}><span style={{fontSize:15}}>{f.emoji}</span></div>
+                    <div><div className="f-name" style={b.flavor2?.id===f.id?{color:"#5dade2"}:{}}>{f.name}</div><div className="f-desc">{f.desc}</div></div>
+                    <div className="f-radio" style={b.flavor2?.id===f.id?{background:"#5dade2",borderColor:"#5dade2"}:{}}/>
+                  </div>
+                ))}
+              </div>
+            </>
+          ):(
+            <div className="flist">
+              {FLAVORS.map(f=>(
+                <div key={f.id} className={`fitem ${b.flavor1?.id===f.id?"sel":""}`} onClick={()=>setB(p=>({...p,flavor1:f}))}>
+                  <div className="f-swatch" style={{background:`${f.color}33`}}><span style={{fontSize:15}}>{f.emoji}</span></div>
+                  <div><div className="f-name">{f.name}</div><div className="f-desc">{f.desc}</div></div>
+                  <div className="f-radio"/>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{marginTop:11,display:"flex",flexDirection:"column",gap:6}}>
+            <button className="btn btn-or" disabled={!canNext3} onClick={()=>setStep(3)}>Next: Choose Quantity →</button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3 */}
+      {step===3&&(
+        <div className="sc">
+          <button className="back-btn" style={{marginBottom:10}} onClick={()=>setStep(2)}>◀ Back</button>
+          <div className="step-title">3. <span className="or">How Many of This Order?</span></div>
+          <div className="qty-row">
+            <div className="qty-lbl">Quantity<small>{b.combo?.label} · {b.hh&&b.flavor2?`${b.flavor1?.name} / ${b.flavor2?.name}`:b.flavor1?.name}</small></div>
+            <button className="qty-btn" onClick={()=>setB(p=>({...p,qty:Math.max(1,p.qty-1)}))}>−</button>
+            <span className="qty-num">{b.qty}</span>
+            <button className="qty-btn" onClick={()=>setB(p=>({...p,qty:p.qty+1}))}>+</button>
+          </div>
+          <div className="total-bar" style={{marginBottom:11}}>
+            <span style={{fontSize:11,color:"var(--gr)"}}>This item subtotal</span>
+            <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"var(--or)"}}>${itemSub}</span>
+          </div>
+          <button className="btn btn-or" onClick={()=>setStep(4)}>Next: Review Your Order →</button>
+        </div>
+      )}
+
+      {/* STEP 4 */}
+      {step===4&&(
+        <div className="sc">
+          <button className="back-btn" style={{marginBottom:10}} onClick={()=>setStep(3)}>◀ Back</button>
+          <div className="order-list-header">
+            <div className="ol-title">Your Order</div>
+            {cart.length>0&&<div className="ol-count">{cart.length} item{cart.length!==1?"s":""}</div>}
+          </div>
+          <div style={{background:"rgba(245,166,35,.04)",border:"1.5px dashed rgba(245,166,35,.3)",borderRadius:7,padding:"9px 11px",marginBottom:8}}>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"rgba(245,166,35,.6)",textTransform:"uppercase",marginBottom:4}}>Current item</div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{flex:1}}><div className="oi-name">{b.combo?.label}</div><div className="oi-detail">{b.hh&&b.flavor2?`${b.flavor1?.name} / ${b.flavor2?.name}`:b.flavor1?.name} · Qty {b.qty}</div></div>
+              <div className="oi-price">${itemSub}</div>
+              <button className="oi-remove" title="Remove" onClick={()=>{setB(fresh());setStep(1);}}>✕</button>
+            </div>
+          </div>
+          {cart.length>0&&(
+            <>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"var(--gr)",textTransform:"uppercase",marginBottom:5}}>Also in your order</div>
+              <div className="order-items">
+                {cart.map(item=>(
+                  <div key={item.id} className={`oi ${removing===item.id?"removing":""}`}>
+                    <div style={{flex:1}}><div className="oi-name">{item.combo.label}</div><div className="oi-detail">{item.flavorLabel} · Qty {item.qty}</div></div>
+                    <div className="oi-price">${item.subtotal}</div>
+                    <button className="oi-remove" onClick={()=>removeItem(item.id)}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <div className="total-bar" style={{marginTop:cart.length>0?0:7}}>
+            <span className="total-lbl">Running Total</span>
+            <span className="total-val">${cartTotal+itemSub}</span>
+          </div>
+          <button className="add-another-btn" onClick={addAndContinue}>➕ Add Another Item</button>
+          <button className="btn btn-or" onClick={()=>{const item=buildItem();setCart(p=>[...p,item]);setB(fresh());navigate("checkout");}}>
+            ✅ I'm Done — Go to Checkout
+          </button>
+        </div>
+      )}
+
+      {cart.length>0&&step!==4&&(
+        <div className="tray">
+          <div className="tray-badge">{cart.length}</div>
+          <div className="tray-info">
+            <div className="tray-line">{cart.length} item{cart.length!==1?"s":""} in order</div>
+            <div className="tray-total">${cartTotal}</div>
+          </div>
+          <button className="tray-btn" onClick={goCheckout}>Checkout →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── TIME/DAY PICKER COMPONENT ──────────────────────────────────────────────────
+function TimeDayPicker({orderTime,setOrderTime,thisWeekOpenDays,settings}){
+  const allDays = [...thisWeekOpenDays];
+  const hasSelection = orderTime.day || orderTime.time;
+
+  // Get slots for the selected day using per-DATE hours, fall back to defaults
+  const selectedDayKey = orderTime.day ? DAYS.find(d=>DAY_FULL[d]===orderTime.day) : null;
+  const selectedDateK = selectedDayKey ? (()=>{
+    const now2=new Date(); const off=(DAYS.indexOf(selectedDayKey)+1)-now2.getDay();
+    const dd=new Date(now2); dd.setDate(now2.getDate()+off);
+    return dateKey(dd.getFullYear(),dd.getMonth(),dd.getDate());
+  })() : null;
+  const dateHours = selectedDateK && settings.dateHours?.[selectedDateK]
+    ? settings.dateHours[selectedDateK]
+    : { open:"11:00", close:"20:00", slotMins:30 };
+  const slots = generateTimeSlots(dateHours.open, dateHours.close, dateHours.slotMins);
+
+  return(
+    <div className={`time-picker-card ${hasSelection?"has-selection":""}`}>
+      <div className="tp-header">
+        <span className="tp-icon">📅</span>
+        <div>
+          <div className="tp-title">When do you want your order?</div>
+          <div className="tp-sub">Pick a day and time below</div>
+        </div>
+      </div>
+
+      <div className="tp-row">
+        <div className="tp-label">Available Days</div>
+        <div className="day-chips">
+          {DAYS.map(d=>{
+            const isAvail=thisWeekOpenDays.includes(d);
+            const isSel=orderTime.day===DAY_FULL[d]&&!orderTime.isSpecial;
+            if(!isAvail) return null;
+            return(
+              <button key={d} className={`day-chip avail ${isSel?"sel":""}`}
+                onClick={()=>setOrderTime(p=>({...p,day:DAY_FULL[d],isSpecial:false,time:null}))}>
+                {DAY_LABELS[d]}
+              </button>
+            );
+          })}
+          {/* Special day request inline */}
+          <button
+            className={`day-chip special ${orderTime.isSpecial?"sel":""}`}
+            onClick={()=>setOrderTime(p=>({...p,isSpecial:!p.isSpecial,day:p.isSpecial?null:p.day,time:null}))}>
+            + Special Day
+          </button>
+        </div>
+      </div>
+
+      {orderTime.isSpecial&&(
+        <div style={{marginBottom:9}}>
+          <div className="tp-label" style={{marginBottom:5}}>Which day are you requesting?</div>
+          <input className="finput" placeholder="e.g. Monday, next Wednesday..." value={orderTime.day||""}
+            onChange={e=>setOrderTime(p=>({...p,day:e.target.value}))}/>
+          <div className="special-day-note">📝 Special day requests are subject to owner approval. You'll get a text confirming availability.</div>
+        </div>
+      )}
+
+      {(orderTime.day&&!orderTime.isSpecial)||(orderTime.isSpecial&&orderTime.day)?(
+        <div className="tp-row" style={{marginBottom:0}}>
+          <div className="tp-label">Preferred Pickup Time</div>
+          <div className="time-slots">
+            {slots.map(slot=>(
+              <button key={slot} className={`time-slot ${orderTime.time===slot?"sel":""}`}
+                onClick={()=>setOrderTime(p=>({...p,time:slot}))}>
+                {slot}
+              </button>
+            ))}
+          </div>
+        </div>
+      ):null}
+
+      {hasSelection&&(
+        <div style={{marginTop:9,padding:"7px 9px",background:"rgba(245,166,35,.06)",border:"1px solid rgba(245,166,35,.2)",borderRadius:5,fontSize:10,color:"rgba(245,166,35,.8)",display:"flex",alignItems:"center",gap:6}}>
+          <span>✓</span>
+          <span>{orderTime.day||"Day TBD"}{orderTime.time?` @ ${orderTime.time}`:""}{orderTime.isSpecial?" (special request)":""}</span>
+          <button onClick={()=>setOrderTime({day:null,time:null,isSpecial:false})} style={{marginLeft:"auto",background:"none",border:"none",color:"var(--gr)",cursor:"pointer",fontSize:11}}>✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── OWNER VIEW ─────────────────────────────────────────────────────────────────
+function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTot,openDates,toggleDate,isDateOpen,settings,setSettings,confirmOrder,upStatus,showToast,clearCompleted}){
+  const [tab,setTab]         = useState("orders");
+  const [calView,setCalView] = useState("week");
+  const [calMonth,setCalMonth]= useState(()=>{ const n=new Date(); return{y:n.getFullYear(),m:n.getMonth()}; });
+  const [showClearModal,setShowClearModal] = useState(false);
+  const completedCount = orders.filter(o=>o.status==="done").length;
+
+  if(!unlocked) return(
+    <div style={{padding:34,maxWidth:270,margin:"0 auto",textAlign:"center"}}>
+      <div style={{fontSize:38,marginBottom:8}}>👑</div>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:21,color:"var(--or)",letterSpacing:2,marginBottom:4}}>Owner Login</div>
+      <p style={{fontSize:10,color:"var(--gr)",marginBottom:15}}>Enter your PIN to access the dashboard</p>
+      <input className="finput" type="password" placeholder="PIN" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&onLogin()} style={{textAlign:"center",fontSize:19,letterSpacing:8,marginBottom:7}}/>
+      <button className="btn btn-or" onClick={onLogin}>Unlock Dashboard</button>
+      <p className="note" style={{marginTop:7}}>Default PIN: 1234</p>
+    </div>
+  );
+
+  const statusLabel=(s)=>({new:"🔥 New",confirmed:"✅ Confirmed",ready:"🍗 Ready",done:"Done"}[s]||s);
+  const badgeClass=(s)=>({new:"b-new",confirmed:"b-confirmed",ready:"b-ready",done:"b-done"}[s]||"b-done");
+  const prevMonth=()=>setCalMonth(p=>p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1});
+  const nextMonth=()=>setCalMonth(p=>p.m===11?{y:p.y+1,m:0}:{y:p.y,m:p.m+1});
+
+  function renderMonthCal(){
+    const{y,m}=calMonth;
+    const firstDow=new Date(y,m,1).getDay();
+    const daysInMonth=new Date(y,m+1,0).getDate();
+    const today=new Date(); const todayK=dateKey(today.getFullYear(),today.getMonth(),today.getDate());
+    const cells=[];
+    for(let i=0;i<firstDow;i++) cells.push(<div key={`e${i}`} className="mday empty"/>);
+    for(let d=1;d<=daysInMonth;d++){
+      const k=dateKey(y,m,d);
+      const isToday=k===todayK;
+      const isOpen=isDateOpen(k);
+      const isPast=new Date(y,m,d)<new Date(today.getFullYear(),today.getMonth(),today.getDate());
+      cells.push(<div key={k} className={`mday ${isToday?"today":""} ${isOpen?"open":""} ${isPast&&!isToday?"past":""}`} onClick={()=>!isPast&&toggleDate(k)}>{d}</div>);
+    }
+    return cells;
+  }
+
+  return(
+    <div className="dash">
+      <div className="dash-title">👑 Dashboard</div>
+      <div className="dash-sub">First Class Wings · Command Center</div>
+      <div className="stats">
+        <div className="stat"><div className="stat-n">{newCt}</div><div className="stat-l">New</div></div>
+        <div className="stat"><div className="stat-n" style={{color:"var(--blue)"}}>{confirmedCt}</div><div className="stat-l">Confirmed</div></div>
+        <div className="stat"><div className="stat-n">${todayTot}</div><div className="stat-l">Earned</div></div>
+      </div>
+      <div className="dtabs">
+        {["orders","calendar","blast","settings"].map(t=>(
+          <button key={t} className={`dtab ${tab===t?"active":""}`} onClick={()=>setTab(t)}>
+            {t==="orders"?"📋":t==="calendar"?"📅":t==="blast"?"📣":"⚙️"} {t==="blast"?"Blast":t.charAt(0).toUpperCase()+t.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* ORDERS */}
+      {tab==="orders"&&(
+        <>
+          {orders.length===0
+            ?<div className="empty"><div className="empty-i">🍗</div><div className="empty-m">No orders yet</div></div>
+            :<div className="orders-list">
+              {orders.map(o=>(
+                <div key={o.id} className={`ocard status-${o.status}`}>
+                  <div className="onum-chip">{o.orderNum}</div>
+                  <div className="otop">
+                    <div className="oname">{o.firstName} {o.lastName}</div>
+                    <span className={`obadge ${badgeClass(o.status)}`}>{statusLabel(o.status)}</span>
+                  </div>
+                  {o.cartItems?.map((item,i)=>(<div key={i} className="odet"><strong>{item.combo.label}</strong> — {item.flavorLabel} ×{item.qty}</div>))}
+                  {o.orderTime?.day&&<div className="odet">📅 Requested: <strong>{o.orderTime.day}{o.orderTime.time?` @ ${o.orderTime.time}`:""}{o.orderTime.isSpecial?" ⭐ Special":""}</strong></div>}
+                  <div className="odet">📱 {o.phone} · 🕐 {o.time}</div>
+                  {o.notes&&<div className="odet">📝 <em>{o.notes}</em></div>}
+                  <div className="oprice">${o.total}</div>
+                  {o.status==="new"&&(
+                    <div className="confirm-box" onClick={()=>confirmOrder(o.id)}>
+                      <div className="cb-check"/>
+                      <div><div className="cb-title">Confirm Order &amp; Notify Customer</div><div className="cb-sub">Check once payment verified for {o.orderNum}. Sends confirmation text to {o.phone}.</div></div>
+                    </div>
+                  )}
+                  <div className="oacts">
+                    {o.status==="confirmed"&&<button className="abtn a-ok" onClick={()=>upStatus(o.id,"ready")}>🍗 Mark Ready</button>}
+                    {o.status==="ready"&&<>
+                      <a className="abtn a-sms" href={`sms:${o.phone}&body=Hey ${o.firstName}! Your First Class Wings are READY 🔥🍗 Order ${o.orderNum} — Pickup at: ${settings.pickupAddress}`}>📱 Text Ready</a>
+                      <button className="abtn a-done" onClick={()=>upStatus(o.id,"done")}>✅ Done</button>
+                    </>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          }
+          {completedCount>0&&(
+            <div style={{marginTop:12}}>
+              <button className="btn btn-danger" onClick={()=>setShowClearModal(true)}>🗑 Clear {completedCount} Completed Order{completedCount!==1?"s":""}</button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* CALENDAR */}
+      {tab==="calendar"&&(
+        <>
+          <div className="scard">
+            <div className="stitle">📅 Your Availability</div>
+            <div className="cal-toggle-row">
+              <button className={`cal-toggle-btn ${calView==="week"?"active":""}`} onClick={()=>setCalView("week")}>📅 This Week</button>
+              <button className={`cal-toggle-btn ${calView==="month"?"active":""}`} onClick={()=>setCalView("month")}>📆 Monthly</button>
+            </div>
+            {calView==="week"&&(
+              <>
+                <p style={{fontSize:10,color:"var(--gr)",marginBottom:8}}>Tap a day to open/close for this week.</p>
+                <div className="week-grid">
+                  {DAYS.map(d=>{
+                    const now2=new Date(); const dow=now2.getDay();
+                    const off=(DAYS.indexOf(d)+1)-dow; const dd=new Date(now2); dd.setDate(now2.getDate()+off);
+                    const k=dateKey(dd.getFullYear(),dd.getMonth(),dd.getDate()); const on=isDateOpen(k);
+                    return(<div key={d} className={`wday ${on?"on":""}`} onClick={()=>toggleDate(k)}><div className="wday-name">{DAY_LABELS[d]}</div><div className="wdot"/></div>);
+                  })}
+                </div>
+              </>
+            )}
+            {calView==="month"&&(
+              <>
+                <div className="month-header">
+                  <button className="month-nav" onClick={prevMonth}>◀</button>
+                  <div className="month-name">{MONTH_NAMES[calMonth.m]} {calMonth.y}</div>
+                  <button className="month-nav" onClick={nextMonth}>▶</button>
+                </div>
+                <div className="month-dow">{["Su","Mo","Tu","We","Th","Fr","Sa"].map(d=><div key={d} className="dow-lbl">{d}</div>)}</div>
+                <div className="month-grid">{renderMonthCal()}</div>
+                <p style={{fontSize:9,color:"var(--gr)",marginTop:7,lineHeight:1.5}}>Tap future dates to mark open. <span style={{color:"var(--or)"}}>Orange = open.</span></p>
+              </>
+            )}
+          </div>
+
+          {/* PER-DATE HOURS SETTINGS */}
+          <div className="scard">
+            <div className="stitle">🕐 Hours for Open Dates</div>
+            <p style={{fontSize:10,color:"var(--gr)",marginBottom:10,lineHeight:1.5}}>
+              Set specific hours for each date you've marked open. Every date can have different hours.
+            </p>
+            {Object.keys(openDates).length===0?(
+              <p style={{fontSize:11,color:"#333",fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>No open dates yet — mark dates open in the calendar above first.</p>
+            ):(
+              Object.keys(openDates).sort().map(dateK=>{
+                const [y,m,d] = dateK.split("-").map(Number);
+                const dateObj = new Date(y, m-1, d);
+                const isPast = dateObj < new Date(new Date().setHours(0,0,0,0));
+                const dateHours = settings.dateHours?.[dateK] || {open:"11:00",close:"20:00",slotMins:30};
+                const label = dateObj.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+                return(
+                  <div key={dateK} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--bdr)",opacity:isPast?.5:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,fontWeight:600,color:"var(--or)",textTransform:"uppercase",letterSpacing:1,flex:1}}>{label}</div>
+                      {isPast&&<span style={{fontSize:9,color:"#333",fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>PAST</span>}
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                      <div>
+                        <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--gr)",letterSpacing:.5,textTransform:"uppercase",marginBottom:3}}>Opens</div>
+                        <input className="finput" type="time" value={dateHours.open} disabled={isPast}
+                          onChange={e=>setSettings(s=>({...s,dateHours:{...s.dateHours,[dateK]:{...dateHours,open:e.target.value}}}))}
+                          style={{padding:"7px 8px",fontSize:12,opacity:isPast?.5:1}}/>
+                      </div>
+                      <div>
+                        <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--gr)",letterSpacing:.5,textTransform:"uppercase",marginBottom:3}}>Closes</div>
+                        <input className="finput" type="time" value={dateHours.close} disabled={isPast}
+                          onChange={e=>setSettings(s=>({...s,dateHours:{...s.dateHours,[dateK]:{...dateHours,close:e.target.value}}}))}
+                          style={{padding:"7px 8px",fontSize:12,opacity:isPast?.5:1}}/>
+                      </div>
+                      <div>
+                        <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--gr)",letterSpacing:.5,textTransform:"uppercase",marginBottom:3}}>Slots</div>
+                        <select className="finput" value={dateHours.slotMins} disabled={isPast}
+                          onChange={e=>setSettings(s=>({...s,dateHours:{...s.dateHours,[dateK]:{...dateHours,slotMins:Number(e.target.value)}}}))}
+                          style={{padding:"7px 6px",fontSize:11,opacity:isPast?.5:1}}>
+                          <option value={15}>15 min</option>
+                          <option value={30}>30 min</option>
+                          <option value={60}>1 hr</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <p className="note">✅ Hours auto-save per date. Each Saturday, Sunday etc. can have completely different hours.</p>
+          </div>
+        </>
+      )}
+
+      {/* SMS BLAST */}
+      {tab==="blast"&&(
+        <BlastTab orders={orders} showToast={showToast}/>
+      )}
+
+      {/* SETTINGS */}
+      {tab==="settings"&&(
+        <>
+          <div className="scard">
+            <div className="stitle">💳 Payment Info</div>
+            {[["cashapp","Cash App Tag","$YourCashTag"],["venmo","Venmo Username","YourVenmo"],["zelle","Zelle Phone/Email","912-555-1234"]].map(([k,l,p])=>(
+              <div className="form-grp" key={k}><label className="flabel">{l}</label><input className="finput" value={settings[k]||""} onChange={e=>setSettings(s=>({...s,[k]:e.target.value}))} placeholder={p}/></div>
+            ))}
+          </div>
+          <div className="scard">
+            <div className="stitle">📍 Pickup Info</div>
+            <textarea className="finput" value={settings.pickupAddress||""} onChange={e=>setSettings(s=>({...s,pickupAddress:e.target.value}))} placeholder="Address or instructions sent when order is ready"/>
+          </div>
+          <div className="scard">
+            <div className="stitle">🔐 Security</div>
+            <div className="form-grp"><label className="flabel">Dashboard PIN</label><input className="finput" type="password" value={settings.ownerPin||""} onChange={e=>setSettings(s=>({...s,ownerPin:e.target.value}))} placeholder="Change PIN"/></div>
+          </div>
+          <button className="btn btn-or" onClick={()=>showToast("Settings saved! ✅")}>Save Settings</button>
+          <p className="note" style={{marginTop:7,textAlign:"center"}}>✅ All settings save automatically to this device</p>
+
+          {completedCount>0&&(
+            <div style={{marginTop:14}}>
+              <div className="clear-warn"><strong>Caution:</strong> Clearing order history permanently removes completed orders. Active orders are never affected.</div>
+              <button className="btn btn-danger" onClick={()=>setShowClearModal(true)}>🗑 Clear {completedCount} Completed Orders</button>
+            </div>
+          )}
+          <div style={{height:20}}/>
+        </>
+      )}
+
+      {showClearModal&&(
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-title">⚠️ Clear Orders?</div>
+            <div className="modal-body">You are about to permanently delete <strong>{completedCount} completed order{completedCount!==1?"s":""}</strong>. This cannot be undone.<br/><br/>Only orders marked <strong>Done</strong> will be removed.</div>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={()=>setShowClearModal(false)}>Cancel</button>
+              <button className="btn btn-danger" onClick={()=>{clearCompleted();setShowClearModal(false);}}>Yes, Clear</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── BLAST TAB COMPONENT ────────────────────────────────────────────────────────
+function BlastTab({orders,showToast}){
+  const allCustomers = [...new Map(
+    orders.filter(o=>o.phone)
+      .map(o=>([o.phone,{phone:o.phone,name:`${o.firstName||""} ${o.lastName||""}`.trim()||o.phone}]))
+  ).values()];
+
+  const [selected,setSelected]   = useState(()=>new Set(allCustomers.map(c=>c.phone)));
+  const [blastMsg,setBlastMsg]   = useState("Hey! 🔥 First Class Wings is cooking this week. Wings & Fries starting at $12. Hit me up to order — made fresh, ATL style!");
+
+  useEffect(()=>{
+    setSelected(prev=>{
+      const next=new Set(prev);
+      allCustomers.forEach(c=>{ if(!next.has(c.phone)) next.add(c.phone); });
+      return next;
+    });
+  },[orders.length]);
+
+  function toggle(phone){ setSelected(prev=>{ const n=new Set(prev); n.has(phone)?n.delete(phone):n.add(phone); return n; }); }
+  function selectAll(){ setSelected(new Set(allCustomers.map(c=>c.phone))); }
+  function deselectAll(){ setSelected(new Set()); }
+
+  const selectedList = allCustomers.filter(c=>selected.has(c.phone));
+  const allSel       = selectedList.length===allCustomers.length;
+  const noneSel      = selectedList.length===0;
+
+  if(allCustomers.length===0) return(
+    <div className="blast-section">
+      <div className="blast-title">📣 Weekly Promo Blast</div>
+      <div className="empty"><div className="empty-i">📱</div><div className="empty-m">No customers yet — numbers appear after the first order</div></div>
+    </div>
+  );
+
+  return(
+    <div className="blast-section">
+      <div className="blast-title">📣 Weekly Promo Blast</div>
+      <div className="blast-sub">
+        Choose which customers get this blast. Tap a name to deselect. Hit the button to open your SMS app pre-loaded and ready to send.
+      </div>
+
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7}}>
+        <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"var(--blue)",textTransform:"uppercase"}}>
+          {selectedList.length} of {allCustomers.length} selected
+        </div>
+        <div style={{display:"flex",gap:5}}>
+          <button onClick={selectAll} disabled={allSel}
+            style={{background:"none",border:"1px solid rgba(41,128,185,.3)",color:"#78b8d8",fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:.5,padding:"3px 8px",borderRadius:3,cursor:"pointer",opacity:allSel?.35:1}}>
+            All
+          </button>
+          <button onClick={deselectAll} disabled={noneSel}
+            style={{background:"none",border:"1px solid var(--bdr)",color:"var(--gr)",fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:.5,padding:"3px 8px",borderRadius:3,cursor:"pointer",opacity:noneSel?.35:1}}>
+            None
+          </button>
+        </div>
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:11,maxHeight:160,overflowY:"auto"}}>
+        {allCustomers.map(c=>{
+          const isSel=selected.has(c.phone);
+          return(
+            <button key={c.phone} onClick={()=>toggle(c.phone)}
+              style={{
+                background:isSel?"rgba(41,128,185,.14)":"rgba(255,255,255,.02)",
+                border:`1px solid ${isSel?"rgba(41,128,185,.4)":"#222"}`,
+                color:isSel?"#78b8d8":"#3a3a3a",
+                fontFamily:"'Oswald',sans-serif",fontSize:11,letterSpacing:.5,
+                padding:"8px 11px",borderRadius:6,cursor:"pointer",
+                transition:"all .15s",textAlign:"left",
+                display:"flex",alignItems:"center",gap:8,
+              }}>
+              <span style={{fontSize:12,width:16,textAlign:"center",flexShrink:0}}>{isSel?"✓":"○"}</span>
+              <span style={{flex:1,fontWeight:600}}>{c.name||c.phone}</span>
+              <span style={{fontSize:9,opacity:.5,fontFamily:"'JetBrains Mono',monospace"}}>{c.phone}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"var(--blue)",textTransform:"uppercase",marginBottom:5}}>Your Message</div>
+      <textarea className="finput" style={{marginBottom:7,fontSize:12}} value={blastMsg} onChange={e=>setBlastMsg(e.target.value)} rows={3}/>
+      <div className="blast-preview" style={{marginBottom:9}}>"{blastMsg}"</div>
+
+      {selectedList.length>0?(
+        <a className="btn btn-blue" style={{textDecoration:"none",display:"flex"}}
+          href={`sms:${selectedList.map(c=>c.phone).join(",")}&body=${encodeURIComponent(blastMsg)}`}>
+          📣 Text {selectedList.length} Customer{selectedList.length!==1?"s":""}
+        </a>
+      ):(
+        <button className="btn btn-blue" disabled style={{opacity:.3,cursor:"not-allowed"}}>
+          Select at least one customer
+        </button>
+      )}
+      <p className="note" style={{marginTop:7}}>Opens your phone's Messages app — review and tap Send. Free, uses your regular texting.</p>
+    </div>
+  );
+}
