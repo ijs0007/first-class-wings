@@ -1664,10 +1664,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
             <div className="stitle">✉️ Custom Messages</div>
             <p style={{fontSize:10,color:"var(--gr)",marginBottom:10,lineHeight:1.5}}>Override any auto-generated SMS. Enable the toggle to activate your custom version. Leave blank to use the default.</p>
             {[
-              {key:"newOrder",label:"📦 New Order (to you)",placeholder:"🔥 New Order! {orderNum} from {name} — ${total}. Awaiting payment."},
-              {key:"confirmed",label:"✅ Order Confirmed (to customer)",placeholder:"Hey {name}! ✅ Your order {orderNum} is confirmed! We'll text when ready. 🍗"},
-              {key:"cooking",label:"🍳 Order Cooking (to customer)",placeholder:"Hey {name}! 🍳 Your wings are in the fryer! Order {orderNum}. Won't be long! 🔥"},
-              {key:"ready",label:"🍗 Order Ready (to customer)",placeholder:"Hey {name}! 🍗 Your wings are READY! Order {orderNum} — 📍 {pickup}"},
+              {key:"newOrder",label:"📦 New Order (to you)",placeholder:"🔥 New Order! {orderNum} from {name} — {total}. Awaiting payment."},
+              {key:"confirmed",label:"✅ Order Confirmed (to customer)",placeholder:"Hey {name}! Your order {orderNum} is confirmed! We'll text when ready. 🍗"},
+              {key:"cooking",label:"🍳 Order Cooking (to customer)",placeholder:"Hey {name}! Your wings are in the fryer! Order {orderNum}. Won't be long! 🔥"},
+              {key:"ready",label:"🍗 Order Ready (to customer)",placeholder:"Hey {name}! Your wings are READY! Order {orderNum} — 📍 {pickup}"},
               {key:"raincheck",label:"🌧️ Rain Check (to customer)",placeholder:"Hey {name}! Your order {orderNum} has been rain-checked. Payment on file — reorder anytime! 🍗"},
             ].map(({key,label,placeholder})=>{
               const enabled=!!settings.customMsgs?.[key+"_on"];
@@ -1687,7 +1687,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                     onChange={e=>setSettings(s=>({...s,customMsgs:{...s.customMsgs,[key]:e.target.value}}))}
                     placeholder={placeholder}
                     style={{fontSize:11,opacity:enabled?1:.35,transition:"opacity .2s"}}/>
-                  {enabled&&<p style={{fontSize:9,color:"var(--gr)",marginTop:3}}>Variables: {"\{name\}"} {"\{orderNum\}"} {"\{total\}"} {"\{pickup\}"}</p>}
+                  {enabled&&<p style={{fontSize:9,color:"var(--gr)",marginTop:3}}>{"Variables: {name} {orderNum} {total} {pickup}"}</p>}
                 </div>
               );
             })}
