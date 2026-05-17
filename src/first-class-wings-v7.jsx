@@ -1069,14 +1069,14 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
         </div>
       )}
 
-      {cart.length>0&&step!==4&&(
+      {cart.length>0&&screen!=="checkout"&&(
         <div className="tray">
           <div className="tray-badge">{cart.length}</div>
           <div className="tray-info">
             <div className="tray-line">{cart.length} item{cart.length!==1?"s":""} in order</div>
             <div className="tray-total">${cartTotal}</div>
           </div>
-          <button className="tray-btn" onClick={goCheckout}>Checkout →</button>
+          <button className="tray-btn" onClick={()=>navigate("checkout")}>View Cart →</button>
         </div>
       )}
     </div>
