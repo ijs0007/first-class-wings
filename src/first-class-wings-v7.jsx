@@ -57,8 +57,6 @@ const DAYS       = ["monday","tuesday","wednesday","thursday","friday","saturday
 const DAY_LABELS = { monday:"Mon",tuesday:"Tue",wednesday:"Wed",thursday:"Thu",friday:"Fri",saturday:"Sat",sunday:"Sun" };
 const DAY_FULL   = { monday:"Monday",tuesday:"Tuesday",wednesday:"Wednesday",thursday:"Thursday",friday:"Friday",saturday:"Saturday",sunday:"Sunday" };
 const MONTH_NAMES= ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const DEFAULT_HOURS = { open:"11:00", close:"20:00", slotMins:30 };
-
 // ── helpers ──────────────────────────────────────────────────────────────────
 function genOrderNum(){ const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s="FCW-"; for(let i=0;i<5;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
 function fmtTime(d){ return d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}); }
@@ -695,7 +693,6 @@ export default function App(){
 function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,setCart,buildStep,setBuildStep,building,setBuilding,screen,navigate,goBack,canGoBack,screenHistory,setScreenHistory,setCustScreen}){
   const [form,setForm]         = useLocalStorage("fcw_form",{firstName:"",lastName:"",phone:"",notes:""});
   const [errors,setErrors]     = useState({});
-  const [pay,setPay]           = useLocalStorage("fcw_pay",null);
   const [orderTime,setOrderTime]= useLocalStorage("fcw_ordertime",{day:null,time:null,isSpecial:false});
   const [lastOrder,setLastOrder]= useLocalStorage("fcw_last_order",null);
   const [removing,setRemoving] = useState(null);
@@ -742,7 +739,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     const order={cartItems:cart,total:cartTotal,orderNum,time,date,...form,pay:"cashapp",specDay:orderTime?.isSpecial||false,reqDay:orderTime?.day||""};
     addOrder(order); setLastOrder(order); navigate("receipt");
     setCart([]); setB(fresh()); setStep(1);
-    setForm({firstName:"",lastName:"",phone:"",notes:""}); setPay(null);
+    setForm({firstName:"",lastName:"",phone:"",notes:""});
     setOrderTime({day:null,time:null,isSpecial:false});
     showToast("Order placed! 🍗");
   }
@@ -817,7 +814,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
 
   // ── CHECKOUT ──
   if(screen==="checkout"){
-    const previewNote=buildPayNote({firstName:form.firstName||"First",lastName:form.lastName||"Last",phone:form.phone||"(000) 000-0000",orderNum:"FCW-XXXXX",time:fmtTime(new Date()),total:cartTotal});
     return(
       <div>
         <div className="back-bar">
