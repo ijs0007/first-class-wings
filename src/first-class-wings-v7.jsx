@@ -1041,8 +1041,8 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               <div className="oi-price">${itemSub}</div>
               <button className="oi-remove" title="Remove" onClick={()=>{
                 setB(fresh());
-                if(cart.length>0){ setStep(1); } // has other items — go back to pick new item
-                else { setStep(1); } // no items — go to start
+                if(cart.length>0){ navigate("checkout"); } // still has items — go to checkout
+                else { setStep(1); } // no items — start over
               }}>✕</button>
             </div>
           </div>
