@@ -479,6 +479,7 @@ export default function App(){
   const [settings,setSettingsState] = useState({
     cashapp:"$FirstClassWings", venmo:"FirstClassWings", zelle:"912-227-4387",
     pickupAddress:"Text owner for pickup address", ownerPin:"1234", dateHours:{},
+    ownerPhone:"", isClosed:false, closedMsg:"", customMsgs:{},
   });
   const [loading,setLoading] = useState(true);
   const [toast,showToast]    = useToast();
@@ -508,6 +509,10 @@ export default function App(){
             pickupAddress:row.pickup_address||"Text owner for pickup address",
             ownerPin:row.owner_pin||"1234",
             dateHours:row.date_hours||{},
+            ownerPhone:row.owner_phone||"",
+            isClosed:row.is_closed||false,
+            closedMsg:row.closed_msg||"",
+            customMsgs:row.custom_msgs||{},
           });
         }
         // Load orders
@@ -750,6 +755,12 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     setForm({firstName:"",lastName:"",phone:"",notes:""});
     setOrderTime({day:null,time:null,isSpecial:false});
     showToast("Order placed! 🍗");
+    // Notify owner via SMS
+    const ownerPhone = settings.ownerPhone||"";
+    if(ownerPhone){
+      const msg = settings.customMsgs?.newOrder||`🔥 New Order! ${orderNum} from ${form.firstName} ${form.lastName} — $${cartTotal}. Awaiting payment. Check your dashboard!`;
+      setTimeout(()=>{ window.location.href=`sms:${ownerPhone}&body=${encodeURIComponent(msg)}`; },1200);
+    }
   }
 
   function copyNote(note){ navigator.clipboard.writeText(note).then(()=>{setCopied(true);showToast("Copied! 📋");setTimeout(()=>setCopied(false),3500);}).catch(()=>showToast("Long-press the note to copy")); }
@@ -892,6 +903,17 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           <div className="hero-badge">Made Fresh To Order</div>
         </div>
       </div>
+
+      {/* CLOSED BANNER */}
+      {settings.isClosed&&(
+        <div style={{background:"rgba(192,57,43,.12)",border:"1px solid rgba(192,57,43,.4)",borderRadius:0,padding:"14px 16px",display:"flex",gap:12,alignItems:"flex-start"}}>
+          <span style={{fontSize:20}}>🚫</span>
+          <div>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:13,fontWeight:700,color:"var(--rd)",letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>Not Taking Orders Right Now</div>
+            <div style={{fontSize:11,color:"#b08080",lineHeight:1.5}}>{settings.closedMsg||"We're currently closed. Follow us on Instagram for updates on when we'll be back! 🍗"}</div>
+          </div>
+        </div>
+      )}
 
       <div className="avail-strip">
         <span className="avail-label">Open:</span>
@@ -1197,10 +1219,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
         <div className="stat"><div className="stat-n">${todayTot}</div><div className="stat-l">Earned</div></div>
       </div>
       <div className="dtabs">
-        {["orders","raincheck","calendar","blast","settings"].map(t=>(
+        {["orders","raincheck","calendar","blast","analytics","settings"].map(t=>(
           <button key={t} className={`dtab ${tab===t?"active":""}`} onClick={()=>setTab(t)}>
-            {t==="orders"?"📋":t==="raincheck"?"🌧️":t==="calendar"?"📅":t==="blast"?"📲":"⚙️"} {t==="blast"?"Texts":t==="raincheck"?"Rain Check":t.charAt(0).toUpperCase()+t.slice(1)}
-            {t==="raincheck"&&orders.filter(o=>o.status==="raincheck").length>0&&<span style={{marginLeft:4,background:"rgba(41,128,185,.3)",color:"#78b8d8",borderRadius:10,padding:"0 5px",fontSize:9}}>{orders.filter(o=>o.status==="raincheck").length}</span>}
+            {t==="orders"?"📋":t==="raincheck"?"🌧️":t==="calendar"?"📅":t==="blast"?"📲":t==="analytics"?"📊":"⚙️"} {t==="blast"?"Texts":t==="raincheck"?"Rain":t==="analytics"?"Stats":t.charAt(0).toUpperCase()+t.slice(1)}
+            {t==="raincheck"&&orders.filter(o=>o.status==="raincheck").length>0&&<span style={{marginLeft:3,background:"rgba(41,128,185,.3)",color:"#78b8d8",borderRadius:10,padding:"0 4px",fontSize:9}}>{orders.filter(o=>o.status==="raincheck").length}</span>}
           </button>
         ))}
       </div>
@@ -1422,7 +1444,13 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                     const now2=new Date(); const dow=now2.getDay();
                     const off=(DAYS.indexOf(d)+1)-dow; const dd=new Date(now2); dd.setDate(now2.getDate()+off);
                     const k=dateKey(dd.getFullYear(),dd.getMonth(),dd.getDate()); const on=isDateOpen(k);
-                    return(<div key={d} className={`wday ${on?"on":""}`} onClick={()=>toggleDate(k)}><div className="wday-name">{DAY_LABELS[d]}</div><div className="wdot"/></div>);
+                    const monthShort=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dd.getMonth()];
+                    const dayNum=dd.getDate();
+                    return(<div key={d} className={`wday ${on?"on":""}`} onClick={()=>toggleDate(k)}>
+                      <div className="wday-name">{DAY_LABELS[d]}</div>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:on?"rgba(0,0,0,.6)":"var(--gr)",letterSpacing:.5,marginTop:1}}>{monthShort} {dayNum}</div>
+                      <div className="wdot"/>
+                    </div>);
                   })}
                 </div>
               </>
@@ -1500,7 +1528,102 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
         <BlastTab orders={orders} showToast={showToast}/>
       )}
 
-      {/* SETTINGS */}
+      {/* ANALYTICS TAB */}
+      {tab==="analytics"&&(()=>{
+        const allDone = orders.filter(o=>["confirmed","ready","done","raincheck"].includes(o.status));
+        const today = new Date(); const todayK = dateKey(today.getFullYear(),today.getMonth(),today.getDate());
+        const todayOrders = allDone.filter(o=>o.date&&o.date.includes(today.toLocaleDateString("en-US",{month:"short",day:"numeric"})));
+        const totalEarned = allDone.reduce((s,o)=>s+(o.total||0),0);
+        const todayEarned = todayOrders.reduce((s,o)=>s+(o.total||0),0);
+        const totalOrders = orders.filter(o=>o.status!=="new").length;
+        const avgOrder = totalOrders>0?(totalEarned/totalOrders).toFixed(2):0;
+
+        // Flavor breakdown
+        const flavorCounts={};
+        orders.forEach(o=>o.cartItems?.forEach(i=>{ const f=i.flavorLabel||"Unknown"; flavorCounts[f]=(flavorCounts[f]||0)+i.qty; }));
+        const topFlavors=Object.entries(flavorCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        const maxFlavor=topFlavors[0]?.[1]||1;
+
+        // Day breakdown
+        const dayCounts={Mon:0,Tue:0,Wed:0,Thu:0,Fri:0,Sat:0,Sun:0};
+        orders.forEach(o=>{ if(o.date){ const d=new Date(o.date); const labels=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const k=labels[d.getDay()]; if(k&&dayCounts[k]!==undefined) dayCounts[k]++; } });
+        const maxDay=Math.max(...Object.values(dayCounts))||1;
+
+        return(
+          <div style={{padding:"4px 0"}}>
+            {/* TOP STATS */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+              {[
+                {label:"Today's Earnings",val:`$${todayEarned.toFixed(2)}`,color:"var(--or)",icon:"💰"},
+                {label:"All Time Earned",val:`$${totalEarned.toFixed(2)}`,color:"var(--ok)",icon:"🏆"},
+                {label:"Total Orders",val:totalOrders,color:"var(--blue)",icon:"📦"},
+                {label:"Avg Order Size",val:`$${avgOrder}`,color:"#b08080",icon:"📊"},
+              ].map(s=>(
+                <div key={s.label} style={{background:"var(--card)",border:"1px solid var(--bdr)",borderRadius:8,padding:"12px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:s.color,letterSpacing:1}}>{s.val}</div>
+                  <div style={{fontFamily:"'Oswald',sans-serif",fontSize:8,color:"var(--gr)",letterSpacing:1,textTransform:"uppercase",marginTop:2}}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* TOP FLAVORS */}
+            <div className="scard" style={{marginBottom:10}}>
+              <div className="stitle">🔥 Top Flavors</div>
+              {topFlavors.length===0
+                ?<div style={{fontSize:11,color:"var(--gr)"}}>No orders yet</div>
+                :topFlavors.map(([name,count],i)=>(
+                  <div key={name} style={{marginBottom:8}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:i===0?"var(--or)":"var(--wh)",letterSpacing:.5}}>
+                        {i===0?"👑 ":i===1?"🥈 ":i===2?"🥉 ":""}{name}
+                      </div>
+                      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:"var(--or)"}}>{count}x</div>
+                    </div>
+                    <div style={{height:5,background:"#1a1a1a",borderRadius:3,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${(count/maxFlavor)*100}%`,background:i===0?"var(--or)":"#333",borderRadius:3,transition:"width .5s ease"}}/>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+
+            {/* BUSIEST DAYS */}
+            <div className="scard" style={{marginBottom:10}}>
+              <div className="stitle">📅 Orders by Day</div>
+              <div style={{display:"flex",gap:4,alignItems:"flex-end",height:70}}>
+                {Object.entries(dayCounts).map(([day,count])=>(
+                  <div key={day} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:"var(--or)",opacity:count>0?1:.3}}>{count||""}</div>
+                    <div style={{width:"100%",height:`${Math.max((count/maxDay)*50,4)}px`,background:count>0?"var(--or)":"#1a1a1a",borderRadius:"3px 3px 0 0",transition:"height .4s ease",minHeight:4}}/>
+                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--gr)",letterSpacing:.5}}>{day}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ORDER STATUS BREAKDOWN */}
+            <div className="scard">
+              <div className="stitle">📋 Order Breakdown</div>
+              {[
+                {label:"New / Pending",count:orders.filter(o=>o.status==="new").length,color:"var(--or)"},
+                {label:"Confirmed",count:orders.filter(o=>o.status==="confirmed").length,color:"var(--blue)"},
+                {label:"Cooking",count:orders.filter(o=>o.status==="cooking").length,color:"var(--rd)"},
+                {label:"Ready",count:orders.filter(o=>o.status==="ready").length,color:"var(--ok)"},
+                {label:"Completed",count:orders.filter(o=>o.status==="done").length,color:"#3a3a3a"},
+                {label:"Rain Checked",count:orders.filter(o=>o.status==="raincheck").length,color:"#78b8d8"},
+              ].map(s=>(
+                <div key={s.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #1a1a1a"}}>
+                  <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--gr)",letterSpacing:.5}}>{s.label}</div>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:s.color}}>{s.count}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* SETTINGS TAB */}
       {tab==="settings"&&(
         <>
           <div className="scard">
@@ -1509,12 +1632,72 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
               <div className="form-grp" key={k}><label className="flabel">{l}</label><input className="finput" value={settings[k]||""} onChange={e=>setSettings(s=>({...s,[k]:e.target.value}))} placeholder={p}/></div>
             ))}
           </div>
+
+          {/* OWNER PHONE */}
+          <div className="scard">
+            <div className="stitle">📱 Owner Phone</div>
+            <p style={{fontSize:10,color:"var(--gr)",marginBottom:8,lineHeight:1.5}}>Your phone number. Used to send you an SMS notification when a new order comes in.</p>
+            <input className="finput" type="tel" value={settings.ownerPhone||""} onChange={e=>setSettings(s=>({...s,ownerPhone:e.target.value}))} placeholder="(912) 555-1234"/>
+          </div>
+
+          {/* CLOSED BANNER */}
+          <div className="scard" style={{borderColor:settings.isClosed?"rgba(192,57,43,.4)":"var(--bdr)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+              <div className="stitle" style={{marginBottom:0,color:settings.isClosed?"var(--rd)":"var(--or)"}}>🚫 We're Closed Banner</div>
+              <div onClick={()=>setSettings(s=>({...s,isClosed:!s.isClosed}))} style={{
+                width:40,height:22,borderRadius:11,background:settings.isClosed?"var(--rd)":"#333",
+                cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0
+              }}>
+                <div style={{position:"absolute",top:3,left:settings.isClosed?20:3,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+              </div>
+            </div>
+            <p style={{fontSize:10,color:"var(--gr)",marginBottom:8,lineHeight:1.5}}>When enabled, customers see a "Not Taking Orders" banner at the top of the app.</p>
+            <textarea className="finput" rows={2} value={settings.closedMsg||""} onChange={e=>setSettings(s=>({...s,closedMsg:e.target.value}))}
+              placeholder="We're currently closed. Follow us on Instagram for updates! 🍗"
+              style={{opacity:settings.isClosed?1:.5}}/>
+          </div>
+
           <div className="scard" style={{borderColor:"rgba(245,166,35,.2)"}}>
             <div className="stitle">📍 Pickup Location</div>
             <p style={{fontSize:10,color:"var(--gr)",marginBottom:8,lineHeight:1.5}}>This goes out automatically in every <strong style={{color:"var(--or)"}}>Ready</strong> text message. Update it anytime — takes effect immediately.</p>
             <textarea className="finput" rows={3} value={settings.pickupAddress||""} onChange={e=>setSettings(s=>({...s,pickupAddress:e.target.value}))} placeholder="e.g. 123 Main St, Savannah GA — or corner of MLK and Bay St, look for the red truck 🚚"/>
             <p style={{fontSize:9,color:"var(--gr)",marginTop:5}}>Preview: "...READY for pickup! 📍 {settings.pickupAddress||"[your address here]"}"</p>
           </div>
+
+          {/* CUSTOM MESSAGES */}
+          <div className="scard">
+            <div className="stitle">✉️ Custom Messages</div>
+            <p style={{fontSize:10,color:"var(--gr)",marginBottom:10,lineHeight:1.5}}>Override any auto-generated SMS. Enable the toggle to activate your custom version. Leave blank to use the default.</p>
+            {[
+              {key:"newOrder",label:"📦 New Order (to you)",placeholder:"🔥 New Order! {orderNum} from {name} — ${total}. Awaiting payment."},
+              {key:"confirmed",label:"✅ Order Confirmed (to customer)",placeholder:"Hey {name}! ✅ Your order {orderNum} is confirmed! We'll text when ready. 🍗"},
+              {key:"cooking",label:"🍳 Order Cooking (to customer)",placeholder:"Hey {name}! 🍳 Your wings are in the fryer! Order {orderNum}. Won't be long! 🔥"},
+              {key:"ready",label:"🍗 Order Ready (to customer)",placeholder:"Hey {name}! 🍗 Your wings are READY! Order {orderNum} — 📍 {pickup}"},
+              {key:"raincheck",label:"🌧️ Rain Check (to customer)",placeholder:"Hey {name}! Your order {orderNum} has been rain-checked. Payment on file — reorder anytime! 🍗"},
+            ].map(({key,label,placeholder})=>{
+              const enabled=!!settings.customMsgs?.[key+"_on"];
+              return(
+                <div key={key} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid #1a1a1a"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:enabled?"var(--or)":"var(--gr)",letterSpacing:.5}}>{label}</div>
+                    <div onClick={()=>setSettings(s=>({...s,customMsgs:{...s.customMsgs,[key+"_on"]:!enabled}}))} style={{
+                      width:34,height:18,borderRadius:9,background:enabled?"var(--or)":"#333",
+                      cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0
+                    }}>
+                      <div style={{position:"absolute",top:2,left:enabled?17:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+                    </div>
+                  </div>
+                  <textarea className="finput" rows={2} disabled={!enabled}
+                    value={settings.customMsgs?.[key]||""}
+                    onChange={e=>setSettings(s=>({...s,customMsgs:{...s.customMsgs,[key]:e.target.value}}))}
+                    placeholder={placeholder}
+                    style={{fontSize:11,opacity:enabled?1:.35,transition:"opacity .2s"}}/>
+                  {enabled&&<p style={{fontSize:9,color:"var(--gr)",marginTop:3}}>Variables: {"{name}"} {"{orderNum}"} {"{total}"} {"{pickup}"}</p>}
+                </div>
+              );
+            })}
+          </div>
+
           <div className="scard">
             <div className="stitle">🔐 Security</div>
             <div className="form-grp">
@@ -1528,6 +1711,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                 cashapp:settings.cashapp, venmo:settings.venmo, zelle:settings.zelle,
                 pickup_address:settings.pickupAddress, owner_pin:settings.ownerPin,
                 date_hours:settings.dateHours||{}, updated_at:new Date().toISOString(),
+                owner_phone:settings.ownerPhone||"",
+                is_closed:settings.isClosed||false,
+                closed_msg:settings.closedMsg||"",
+                custom_msgs:settings.customMsgs||{},
               });
               showToast("Settings saved to cloud! ☁️✅");
             }catch(e){ showToast("Save failed — check connection"); }
