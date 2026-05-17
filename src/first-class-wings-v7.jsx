@@ -770,6 +770,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     return(
       <div>
         <div className="back-bar">
+          <button className="back-btn" onClick={()=>navigate("build")}>◀ New Order</button>
           <span className="bar-title">✅ Order Submitted!</span>
         </div>
         <div className="receipt">
@@ -1064,14 +1065,15 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
         </div>
       )}
 
-      {cart.length>0&&screen!=="checkout"&&(
+      {cart.length>0&&(
         <div className="tray">
           <div className="tray-badge">{cart.length}</div>
           <div className="tray-info">
             <div className="tray-line">{cart.length} item{cart.length!==1?"s":""} in order</div>
             <div className="tray-total">${cartTotal}</div>
           </div>
-          <button className="tray-btn" onClick={()=>navigate("checkout")}>View Cart →</button>
+          {screen!=="checkout"&&<button className="tray-btn" onClick={()=>navigate("checkout")}>View Cart →</button>}
+          {screen==="checkout"&&<button className="tray-btn" onClick={()=>navigate("build")}>+ Add More</button>}
         </div>
       )}
     </div>
