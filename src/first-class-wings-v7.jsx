@@ -1851,6 +1851,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
           <p className="note" style={{marginTop:7,textAlign:"center"}}>☁️ Saves to Supabase — works on all devices</p>
 
           <div style={{height:20}}/>
+          <p style={{fontSize:9,color:"#2a2a2a",textAlign:"center",letterSpacing:.3}}>
+            Icons by <a href="https://icons8.com" target="_blank" rel="noreferrer" style={{color:"#333",textDecoration:"none"}}>Icons8</a>
+          </p>
+          <div style={{height:12}}/>
         </>
       )}
 
