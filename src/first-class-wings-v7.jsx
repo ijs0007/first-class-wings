@@ -1256,8 +1256,11 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
               ):(
                 <div className="scard" style={{borderColor:"rgba(192,57,43,.25)"}}>
                   <p style={{fontSize:10,color:"var(--gr)",marginBottom:10,lineHeight:1.5}}>
-                    <strong style={{color:"var(--rd)"}}>Clear mode active.</strong> Check the orders above you want to remove, then tap Clear Selected or Clear All. This cannot be undone.
+                    Tap checkboxes on the Done orders above, then choose an option below.
                   </p>
+                <div className="clear-warn" style={{marginBottom:10}}>
+                  ⚠️ <strong>Heads up!</strong> You're about to permanently delete completed orders. This cannot be undone. Check the orders above you want to remove, then choose below.
+                </div>
                   <div style={{display:"flex",gap:8}}>
                     <button className="btn btn-ghost" style={{flex:1,fontSize:11}}
                       onClick={()=>{setShowClearToggle(false);setClearSelected(new Set());}}>
