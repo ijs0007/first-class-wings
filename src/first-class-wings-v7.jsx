@@ -130,7 +130,12 @@ body{background:var(--blk);color:var(--wh);font-family:'Inter',sans-serif;min-he
 .hero-title .or{color:var(--or)}
 .hero-badge{display:inline-block;background:var(--rd);color:var(--wh);font-family:'Oswald',sans-serif;font-size:9px;letter-spacing:2px;padding:3px 12px;border-radius:2px;margin-top:11px;text-transform:uppercase}
 
-/* MENU OVERLAY — sexy smooth slide up over everything */
+/* INSTALL BANNER — mobile only */
+@media(min-width:600px){.install-banner{display:none!important}}
+.install-banner{display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(245,166,35,.12),rgba(245,166,35,.06));border-bottom:1px solid rgba(245,166,35,.25);padding:8px 12px}
+.install-banner-text{flex:1;font-family:'Oswald',sans-serif;font-size:10px;color:var(--gr);letter-spacing:.3px;line-height:1.3}
+.install-banner-btn{background:var(--or);color:#000;border:none;font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:1px;padding:5px 10px;border-radius:4px;cursor:pointer;white-space:nowrap;font-weight:600;flex-shrink:0}
+.install-banner-x{background:none;border:none;color:#333;cursor:pointer;font-size:13px;padding:2px 4px;flex-shrink:0;line-height:1}
 .menu-overlay{position:fixed;inset:0;z-index:999;pointer-events:none;isolation:isolate}
 .menu-overlay.open{pointer-events:all}
 .menu-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.0);backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px);transition:background .45s ease,backdrop-filter .45s ease,-webkit-backdrop-filter .45s ease}
@@ -491,7 +496,9 @@ export default function App(){
   const [building,setBuilding]       = useLocalStorage("fcw_building",{combo:null,flavor1:null,flavor2:null,hh:false,qty:1});
   const [custScreen,setCustScreen]   = useLocalStorage("fcw_cust_screen","build");
   const [screenHistory,setScreenHistory] = useLocalStorage("fcw_screen_hist",["build"]);
-  const [menuOpen,setMenuOpen]       = useState(false);
+  const [menuOpen,setMenuOpen]           = useState(false);
+  const [installModal,setInstallModal]   = useState(false);
+  const [installDismissed,setInstallDismissed] = useState(()=>!!localStorage.getItem("fcw_install_dismissed"));
 
   // ── LOAD FROM SUPABASE ON MOUNT ──
   useEffect(()=>{
@@ -635,8 +642,6 @@ export default function App(){
     </div>
   );
 
-  const [installModal,setInstallModal] = useState(false);
-
   return(
     <div className="app">
       <style>{CSS}</style>
@@ -645,12 +650,21 @@ export default function App(){
         <div className="nav-tabs">
           <button className={`ntab ${view==="customer"?"active":""}`} onClick={()=>setView("customer")}>Order</button>
           <button className="ntab" onClick={()=>setMenuOpen(true)}>Menu</button>
-          <button className="ntab install-btn" onClick={()=>setInstallModal(true)} title="Add to Home Screen">📲</button>
           <button className={`ntab ${view==="owner"?"active":""}`} onClick={()=>setView("owner")}>
             Owner{newCt>0?` (${newCt})`:""}
           </button>
         </div>
       </nav>
+
+      {/* GET THE APP BANNER — mobile only, dismissible */}
+      {!installDismissed&&(
+        <div className="install-banner">
+          <span style={{fontSize:13}}>📲</span>
+          <span className="install-banner-text">Add First Class Wings to your home screen</span>
+          <button className="install-banner-btn" onClick={()=>setInstallModal(true)}>Get the App</button>
+          <button className="install-banner-x" onClick={()=>{setInstallDismissed(true);localStorage.setItem("fcw_install_dismissed","1");}}>✕</button>
+        </div>
+      )}
 
       {/* INSTALL MODAL */}
       {installModal&&(
