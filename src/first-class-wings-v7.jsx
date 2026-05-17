@@ -1149,6 +1149,8 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
   const [calMonth,setCalMonth]= useState(()=>{ const n=new Date(); return{y:n.getFullYear(),m:n.getMonth()}; });
   const [showClearToggle,setShowClearToggle] = useState(false);
   const [clearSelected,setClearSelected]     = useState(new Set());
+  const [unconfirmModal,setUnconfirmModal]   = useState(null);
+  const [raincheckModal,setRaincheckModal]   = useState(null);
   const completedCount = orders.filter(o=>o.status==="done").length;
 
   if(!unlocked) return(
@@ -1161,8 +1163,6 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
     </div>
   );
 
-  const [unconfirmModal,setUnconfirmModal] = useState(null); // order id
-  const [raincheckModal,setRaincheckModal] = useState(null); // order object
   const statusLabel=(s)=>({new:"🔥 New",confirmed:"✅ Confirmed",ready:"🍗 Ready",done:"Done",raincheck:"🌧️ Rain Check"}[s]||s);
   const badgeClass=(s)=>({new:"b-new",confirmed:"b-confirmed",ready:"b-ready",done:"b-done",raincheck:"b-rain"}[s]||"b-done");
   const prevMonth=()=>setCalMonth(p=>p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1});
