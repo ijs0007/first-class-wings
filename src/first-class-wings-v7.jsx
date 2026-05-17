@@ -1057,7 +1057,10 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
                   <div key={item.id} className={`oi ${removing===item.id?"removing":""}`}>
                     <div style={{flex:1}}><div className="oi-name">{item.combo.label}</div><div className="oi-detail">{item.flavorLabel} · Qty {item.qty}</div></div>
                     <div className="oi-price">${item.subtotal}</div>
-                    <button className="oi-remove" onClick={()=>removeItem(item.id)}>✕</button>
+                    <button className="oi-remove" onClick={()=>{
+                      if(cart.length===1&&!b.combo){ setCart([]); setStep(1); }
+                      else { removeItem(item.id); }
+                    }}>✕</button>
                   </div>
                 ))}
               </div>
