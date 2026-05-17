@@ -592,9 +592,13 @@ export default function App(){
     if(o) showToast(`✅ ${o.orderNum} confirmed!`);
   }
 
-  async function clearCompleted(){
-    setOrders(p=>p.filter(o=>o.status!=="done"));
-    try{ await sb.delete("orders","?status=eq.done"); }catch(e){ console.error(e); }
+  async function clearCompleted(ids){
+    if(ids&&ids.length>0){
+      setOrders(p=>p.filter(o=>!ids.includes(o.id)));
+    } else {
+      setOrders(p=>p.filter(o=>o.status!=="done"));
+      try{ await sb.delete("orders","?status=eq.done"); }catch(e){ console.error(e); }
+    }
     showToast("Cleared!");
   }
 
@@ -1263,8 +1267,8 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                       disabled={clearSelected.size===0}
                       onClick={async()=>{
                         const ids=[...clearSelected];
-                        setOrders(p=>p.filter(o=>!ids.includes(o.id)));
                         for(const id of ids){ try{ await sb.delete("orders",`?id=eq.${id}`); }catch(e){} }
+                        clearCompleted(ids);
                         setShowClearToggle(false); setClearSelected(new Set());
                         showToast(`🗑 Cleared ${ids.length} order${ids.length!==1?"s":""}`);
                       }}>
@@ -1273,8 +1277,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                     <button className="btn btn-danger" style={{flex:1,fontSize:11}}
                       onClick={async()=>{
                         const doneIds=orders.filter(o=>o.status==="done").map(o=>o.id);
-                        setOrders(p=>p.filter(o=>o.status!=="done"));
-                        try{ await sb.delete("orders","?status=eq.done"); }catch(e){}
+                        clearCompleted();
                         setShowClearToggle(false); setClearSelected(new Set());
                         showToast(`🗑 Cleared ${doneIds.length} order${doneIds.length!==1?"s":""}`);
                       }}>
@@ -1466,7 +1469,6 @@ function BlastTab({orders,showToast}){
     return customMsg.trim().replace(/\{name\}/g, name||"");
   }
 
-  const previewMsg = getFinalMsg("there");
   const ready = msgMode==="auto" || (msgMode==="custom" && customMsg.trim());
 
   if(allCustomers.length===0) return(
