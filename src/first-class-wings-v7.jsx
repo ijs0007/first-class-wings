@@ -839,7 +839,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
                 </div>
                 <div className="oi-price">${item.subtotal}</div>
                 <button className="oi-remove" title="Remove item" onClick={()=>{
-                  if(cart.length===1){ goBack(); }
+                  if(cart.length===1){ setCart([]); navigate("build"); setStep(1); }
                   else { removeItem(item.id); }
                 }}>✕</button>
               </div>
