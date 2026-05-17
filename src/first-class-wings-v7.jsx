@@ -1068,7 +1068,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             <span className="total-lbl">Running Total</span>
             <span className="total-val">${b.combo ? cartTotal+itemSub : cartTotal}</span>
           </div>
-          {b.combo&&<button className="add-another-btn" onClick={addAndContinue}>➕ Add Another Item</button>}
+          <button className="add-another-btn" onClick={()=>{setB(fresh());setStep(1);}}>➕ Add Another Item</button>
           {b.combo
             ? <button className="btn btn-or" onClick={()=>{const item=buildItem();setCart(p=>[...p,item]);setB(fresh());navigate("checkout");}}>✅ I'm Done — Go to Checkout</button>
             : cart.length>0&&<button className="btn btn-or" onClick={()=>navigate("checkout")}>✅ Go to Checkout</button>
