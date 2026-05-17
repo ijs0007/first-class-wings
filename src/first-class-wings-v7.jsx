@@ -789,7 +789,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     const flavorLabel=b.hh&&b.flavor2?`${b.flavor1?.name||""} / ${b.flavor2?.name||""}`:b.flavor1?.name||"";
     return{id:Date.now()+Math.random(),combo:b.combo,flavorLabel,qty:b.qty,subtotal:b.combo.price*b.qty};
   }
-  function addAndContinue(){ setCart(p=>[...p,buildItem()]); showToast("Added! 🔥"); setB(fresh()); setStep(1); }
   function removeItem(id){ setRemoving(id); setTimeout(()=>{setCart(p=>p.filter(i=>i.id!==id));setRemoving(null);},250); }
 
   function validate(){
