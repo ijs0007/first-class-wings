@@ -882,7 +882,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
   }
 
   // ── BUILD ──
-  const buildTotal = cartTotal + (b.combo?b.combo.price*b.qty:0);
   return(
     <div>
       <div className="hero">
