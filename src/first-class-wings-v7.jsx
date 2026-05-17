@@ -178,9 +178,10 @@ body{background:var(--blk);color:var(--wh);font-family:'Inter',sans-serif;min-he
 
 /* COMBO CARDS with food image headers */
 .combo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}
-.ccard{background:var(--card);border:2px solid var(--bdr);border-radius:8px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
-.ccard:hover{border-color:var(--or);transform:translateY(-2px)}
+.ccard{background:var(--card);border:2px solid var(--bdr);border-radius:8px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .2s;position:relative}
+.ccard:hover{transform:translateY(-2px)}
 .ccard.sel{border-color:var(--or);background:rgba(245,166,35,.06)}
+.ccard:not(.sel){border-color:var(--bdr)}
 .ccard-img{height:46px;overflow:hidden;position:relative}
 .ccard-img img{width:100%;height:100%;object-fit:cover;object-position:center top;filter:brightness(.7)}
 .ccard-img-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.5) 100%)}
@@ -758,31 +759,28 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     return(
       <div>
         <div className="back-bar">
-          <span className="bar-title">Order Placed!</span>
+          <span className="bar-title">✅ Order Submitted!</span>
         </div>
         <div className="receipt">
-          <div className="receipt-hdr">
-            <div className="receipt-logo">👑 First Class Wings</div>
-            <div className="receipt-ordernum">{lastOrder.orderNum}</div>
-            <div className="receipt-date">{lastOrder.date} · {lastOrder.time}</div>
-          </div>
 
-          {/* ORDER SUMMARY FIRST */}
-          <div className="rs-card">
-            <div className="rs-title">Your Order</div>
-            {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
-            {lastOrder.orderTime?.day&&<div className="rs-row"><span className="rs-lbl">Requested</span><span className="rs-val">{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>}
-            {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
-            <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
-          </div>
-
-          {/* PAYMENT — clear and simple */}
-          <div className="warn-banner">
+          {/* 1 — PAYMENT WARNING */}
+          <div className="warn-banner" style={{marginBottom:12}}>
             <span className="ban-ico">⚠️</span>
-            <div className="ban-txt"><strong>Send payment to confirm your order.</strong> Your order won't be prepared until payment is received.</div>
+            <div className="ban-txt"><strong>Send payment now to confirm your order.</strong> Your order won't be prepared until payment is received and verified.</div>
           </div>
 
-          <div className="pay-actions">
+          {/* 2 — PAYMENT NOTE */}
+          <div className="pay-note-card" style={{marginBottom:12}}>
+            <div className="pn-title"><div className="pn-dot"/>Add This Note to Your Payment</div>
+            <div className="pn-desc" style={{marginTop:4}}>Paste into the memo/description when you pay — this connects your payment to your order.</div>
+            <div className="pn-body">{payNote}</div>
+            <button className={`copy-btn ${copied?"copy-done":"copy-idle"}`} onClick={()=>copyNote(payNote)}>
+              {copied?"✓ Copied!":"📋 Tap to Copy"}
+            </button>
+          </div>
+
+          {/* 3 — PAY BUTTONS */}
+          <div className="pay-actions" style={{marginBottom:16}}>
             <a className="pa-btn pa-cashapp" href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
               <span>💚</span><span style={{flex:1}}>Pay with Cash App</span><span className="pa-amount">${lastOrder.total}</span>
             </a>
@@ -794,20 +792,20 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             </a>
           </div>
 
-          {/* PAYMENT NOTE */}
-          <div className="pay-note-card">
-            <div className="pn-title"><div className="pn-dot"/>Add This Note to Your Payment</div>
-            <div className="pn-desc" style={{marginTop:5}}>Paste into the memo/description when you pay — this connects your payment to your order.</div>
-            <div className="pn-body">{payNote}</div>
-            <button className={`copy-btn ${copied?"copy-done":"copy-idle"}`} onClick={()=>copyNote(payNote)}>
-              {copied?"✓ Copied!":"📋 Tap to Copy"}
-            </button>
+          {/* 4 — ORDER SUMMARY */}
+          <div className="rs-card">
+            <div className="rs-title">Order Summary</div>
+            <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
+            {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
+            {lastOrder.orderTime?.day&&<div className="rs-row"><span className="rs-lbl">Requested</span><span className="rs-val">{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>}
+            {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
+            <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
           </div>
 
           <div className="screenshot-note">📸 <strong>Screenshot this screen</strong> as proof of your order</div>
           <div className="info-banner">
             <span className="ban-ico">📱</span>
-            <div className="ban-txt">Once payment is confirmed, you'll get a text at <strong>{lastOrder.phone}</strong>.</div>
+            <div className="ban-txt">Once payment is confirmed, you'll receive a text at <strong>{lastOrder.phone}</strong>.</div>
           </div>
 
           <button className="btn btn-or" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>Place Another Order</button>
@@ -873,7 +871,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           <div className="sec-hdr" style={{marginTop:12}}><div className="sec-title">When Do You Want It?</div><div className="sec-line"/></div>
           <TimeDayPicker orderTime={orderTime} setOrderTime={setOrderTime} thisWeekOpenDays={thisWeekOpenDays} settings={settings}/>
 
-          <button className="btn btn-or" onClick={submitOrder}>🔥 Place Order — ${cartTotal}</button>
+          <button className="btn btn-or" onClick={submitOrder}>✅ Submit Order — ${cartTotal}</button>
           <div style={{height:20}}/>
         </div>
       </div>
@@ -1155,9 +1153,8 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
       <div style={{fontSize:38,marginBottom:8}}>👑</div>
       <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:21,color:"var(--or)",letterSpacing:2,marginBottom:4}}>Owner Login</div>
       <p style={{fontSize:10,color:"var(--gr)",marginBottom:15}}>Enter your PIN to access the dashboard</p>
-      <input className="finput" type="password" placeholder="PIN" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&onLogin()} style={{textAlign:"center",fontSize:19,letterSpacing:8,marginBottom:7}}/>
+      <input className="finput" type="password" placeholder="Enter PIN" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&onLogin()} style={{textAlign:"center",fontSize:19,letterSpacing:8,marginBottom:7}}/>
       <button className="btn btn-or" onClick={onLogin}>Unlock Dashboard</button>
-      <p className="note" style={{marginTop:7}}>Default PIN: 1234</p>
     </div>
   );
 
@@ -1353,7 +1350,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
           </div>
           <div className="scard">
             <div className="stitle">🔐 Security</div>
-            <div className="form-grp"><label className="flabel">Dashboard PIN</label><input className="finput" type="password" value={settings.ownerPin||""} onChange={e=>setSettings(s=>({...s,ownerPin:e.target.value}))} placeholder="Change PIN"/></div>
+            <div className="form-grp">
+              <label className="flabel">Dashboard PIN</label>
+              <PinField value={settings.ownerPin||""} onChange={v=>setSettings(s=>({...s,ownerPin:v}))}/>
+            </div>
           </div>
           <button className="btn btn-or" onClick={async()=>{
             try{
@@ -1389,6 +1389,22 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── PIN FIELD WITH EYE TOGGLE ─────────────────────────────────────────────────
+function PinField({value,onChange}){
+  const [show,setShow]=useState(false);
+  return(
+    <div style={{position:"relative",display:"flex",alignItems:"center"}}>
+      <input className="finput" type={show?"text":"password"} value={value}
+        onChange={e=>onChange(e.target.value)} placeholder="Enter new PIN"
+        style={{paddingRight:40,letterSpacing:show?2:6,fontSize:16}}/>
+      <button onClick={()=>setShow(s=>!s)} style={{
+        position:"absolute",right:10,background:"none",border:"none",
+        color:"var(--gr)",cursor:"pointer",fontSize:16,padding:4,lineHeight:1
+      }}>{show?"🙈":"👁"}</button>
     </div>
   );
 }
