@@ -287,12 +287,12 @@ select.finput{appearance:none}
 
 /* PAY ACTION BUTTONS */
 .pay-actions{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
-.pa-btn{display:flex;align-items:center;gap:8px;padding:11px 12px;border-radius:7px;border:none;cursor:pointer;font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:1px;text-transform:uppercase;text-decoration:none;transition:all .2s;width:100%}
-.pa-btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
-.pa-cashapp{background:#00d632;color:#000}
-.pa-venmo{background:#3d95ce;color:#fff}
-.pa-zelle{background:#6d1ed4;color:#fff}
-.pa-amount{font-family:'Bebas Neue',sans-serif;font-size:16px;margin-left:auto}
+.pa-btn{display:flex;align-items:center;gap:8px;padding:11px 12px;border-radius:7px;cursor:pointer;font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:1px;text-transform:uppercase;text-decoration:none;transition:all .2s;width:100%;border:1.5px solid #2a2a2a;background:#141414;color:var(--wh)}
+.pa-btn:hover{border-color:#3a3a3a;background:#1c1c1c;transform:translateY(-1px)}
+.pa-cashapp{border-left:3px solid #00a827}
+.pa-venmo{border-left:3px solid #3d95ce}
+.pa-zelle{border-left:3px solid #6d1ed4}
+.pa-amount{font-family:'Bebas Neue',sans-serif;font-size:16px;margin-left:auto;color:var(--or)}
 
 /* PAY NOTE */
 .pay-note-card{background:#0c0c0c;border:1.5px solid var(--or);border-radius:8px;padding:11px;margin-bottom:10px}
@@ -1503,11 +1503,9 @@ function BlastTab({orders,showToast}){
             style={{background:"none",border:"1px solid var(--bdr)",color:"var(--gr)",width:28,height:28,borderRadius:4,cursor:"pointer",fontSize:14,flexShrink:0}}>▶</button>
         </div>
         <div style={{background:"#0c0c0c",border:"1px solid #222",borderRadius:6,padding:"9px 10px",fontSize:11,color:msgMode==="auto"?"var(--wh)":"#444",lineHeight:1.6,fontStyle:"italic",transition:"color .2s"}}>
-          "{AUTO_MESSAGES[autoIdx].replace(/\{name\}/g,"[Name]")}"
+          "{AUTO_MESSAGES[autoIdx].replace(/\{name\}/g,"{name}")}"
         </div>
       </div>
-
-      {/* CUSTOM MESSAGE */}
       <div className="scard" style={{marginBottom:9,borderColor:msgMode==="custom"?"rgba(245,166,35,.4)":"var(--bdr)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
           <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,color:msgMode==="custom"?"var(--or)":"var(--gr)",textTransform:"uppercase"}}>✏️ Custom Message</div>
@@ -1519,23 +1517,15 @@ function BlastTab({orders,showToast}){
             padding:"3px 10px",borderRadius:20,cursor:"pointer",textTransform:"uppercase"
           }}>{msgMode==="custom"?"✓ Selected":"Use This"}</button>
         </div>
-        <textarea className="finput" rows={4} placeholder={"Write your message here...\n\nTip: Type {name} anywhere and it auto-fills each customer's first name when you tap their Text button.\n\nExample: Hey {name}! Wings are ready this Saturday 🔥"}
+        <textarea className="finput" rows={4} placeholder={"Write your message here...\n\nUse {name} and it auto-fills each customer's first name.\n\nExample: Hey {name}! Wings are ready this Saturday 🔥"}
           value={customMsg} onChange={e=>setCustomMsg(e.target.value)}
           style={{fontSize:12,opacity:msgMode==="custom"?1:.4,transition:"opacity .2s"}}/>
         {msgMode==="custom"&&(
           <p style={{fontSize:10,color:"var(--or)",marginTop:5,lineHeight:1.5}}>
-            💡 Use <strong style={{fontFamily:"'JetBrains Mono',monospace",background:"rgba(245,166,35,.1)",padding:"1px 5px",borderRadius:3}}>{"{name}"}</strong> and it auto-fills each customer's first name when you tap Text
+            💡 Use <strong style={{fontFamily:"'JetBrains Mono',monospace",background:"rgba(245,166,35,.1)",padding:"1px 5px",borderRadius:3}}>{"{name}"}</strong> — auto-fills each customer's first name
           </p>
         )}
       </div>
-
-      {/* PREVIEW */}
-      {ready&&(
-        <div style={{background:"rgba(245,166,35,.04)",border:"1px solid rgba(245,166,35,.2)",borderRadius:7,padding:"9px 11px",marginBottom:12}}>
-          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"var(--or)",textTransform:"uppercase",marginBottom:5}}>Preview</div>
-          <div style={{fontSize:11,color:"var(--gr)",lineHeight:1.6,whiteSpace:"pre-line"}}>{previewMsg}</div>
-        </div>
-      )}
 
       {/* CUSTOMER LIST */}
       <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1.5,color:"var(--or)",textTransform:"uppercase",marginBottom:8}}>
