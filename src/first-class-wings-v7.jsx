@@ -1,10 +1,42 @@
 import { useState, useEffect } from "react";
 
+// ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://viqzjftggbcyvjlrttlp.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpcXpqZnRnZ2JjeXZqbHJ0dGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDQyNjAsImV4cCI6MjA5NDU4MDI2MH0.afLhgNyGJHToO2NAaHnOaxKFneo3lwUFHhnnDD5Xt-M";
+
+const sb = {
+  async get(table, query=""){
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+      headers:{ apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type":"application/json" }
+    });
+    return res.json();
+  },
+  async post(table, body){
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method:"POST",
+      headers:{ apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type":"application/json", Prefer:"return=representation" },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  },
+  async patch(table, query, body){
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+      method:"PATCH",
+      headers:{ apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type":"application/json", Prefer:"return=representation" },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  },
+  async delete(table, query){
+    await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+      method:"DELETE",
+      headers:{ apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  }
+};
 // ─────────────────────────────────────────────────────────────────────────────
-// MENU IMAGE — replace this URL after hosting your flyer image
-// Upload to Cloudinary (free): https://cloudinary.com
-// or Imgur: https://imgur.com/upload
-// Then paste the direct image URL here:
+
+// ─────────────────────────────────────────────────────────────────────────────
 const MENU_IMAGE_URL = "https://res.cloudinary.com/doqb37ujx/image/upload/IMG_9040_wksvez.png";
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -106,7 +138,7 @@ body{background:var(--blk);color:var(--wh);font-family:'Inter',sans-serif;min-he
 .menu-overlay.open{pointer-events:all}
 .menu-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.0);backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px);transition:background .45s ease,backdrop-filter .45s ease,-webkit-backdrop-filter .45s ease}
 .menu-overlay.open .menu-backdrop{background:rgba(0,0,0,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-.menu-panel{position:absolute;bottom:0;left:0;right:0;height:88vh;border-radius:22px 22px 0 0;overflow:hidden;transform:translateY(102%);transition:transform .5s cubic-bezier(.25,.85,.25,1);will-change:transform}
+.menu-panel{position:absolute;bottom:0;left:0;right:0;height:70vh;border-radius:22px 22px 0 0;overflow:hidden;transform:translateY(102%);transition:transform .5s cubic-bezier(.25,.85,.25,1);will-change:transform}
 .menu-overlay.open .menu-panel{transform:translateY(0)}
 .menu-glass{position:absolute;inset:0;background:rgba(6,6,6,.6);backdrop-filter:blur(30px) saturate(1.8);-webkit-backdrop-filter:blur(30px) saturate(1.8);border-top:1px solid rgba(245,166,35,.3);border-left:1px solid rgba(245,166,35,.08);border-right:1px solid rgba(245,166,35,.08)}
 .menu-inner{position:relative;z-index:1;height:100%;display:flex;flex-direction:column}
@@ -439,38 +471,139 @@ select.finput{appearance:none}
 
 // ── ROOT ───────────────────────────────────────────────────────────────────────
 export default function App(){
-  const [view,setView]     = useState("customer");
-  const [orders,setOrders] = useLocalStorage("fcw_orders",[]);
-  const [openDates,setOpenDates] = useLocalStorage("fcw_open_dates",{});
-  const [settings,setSettings]   = useLocalStorage("fcw_settings",{
+  const [view,setView]       = useState("customer");
+  const [orders,setOrders]   = useState([]);
+  const [openDates,setOpenDates] = useState({});
+  const [settings,setSettingsState] = useState({
     cashapp:"$FirstClassWings", venmo:"FirstClassWings", zelle:"912-227-4387",
-    pickupAddress:"Text owner for pickup address", ownerPin:"1234",
-    hours: DEFAULT_HOURS,
+    pickupAddress:"Text owner for pickup address", ownerPin:"1234", dateHours:{},
   });
-  const [toast,showToast] = useToast();
-  const [ownerPin,setOwnerPin]             = useState("");
-  const [ownerUnlocked,setOwnerUnlocked]   = useState(false);
+  const [loading,setLoading] = useState(true);
+  const [toast,showToast]    = useToast();
+  const [ownerPin,setOwnerPin]           = useState("");
+  const [ownerUnlocked,setOwnerUnlocked] = useState(false);
 
-  // Persistent customer state — survives tab switches
-  const [cart,setCart]                       = useLocalStorage("fcw_cart",[]);
-  const [buildStep,setBuildStep]             = useLocalStorage("fcw_step",1);
-  const [building,setBuilding]               = useLocalStorage("fcw_building",{combo:null,flavor1:null,flavor2:null,hh:false,qty:1});
-  const [custScreen,setCustScreen]           = useLocalStorage("fcw_cust_screen","build");
-  const [screenHistory,setScreenHistory]     = useLocalStorage("fcw_screen_hist",["build"]);
+  // Persistent customer state — localStorage only (cart is per-device by design)
+  const [cart,setCart]               = useLocalStorage("fcw_cart",[]);
+  const [buildStep,setBuildStep]     = useLocalStorage("fcw_step",1);
+  const [building,setBuilding]       = useLocalStorage("fcw_building",{combo:null,flavor1:null,flavor2:null,hh:false,qty:1});
+  const [custScreen,setCustScreen]   = useLocalStorage("fcw_cust_screen","build");
+  const [screenHistory,setScreenHistory] = useLocalStorage("fcw_screen_hist",["build"]);
+  const [menuOpen,setMenuOpen]       = useState(false);
 
-  const [menuOpen, setMenuOpen] = useState(false);
+  // ── LOAD FROM SUPABASE ON MOUNT ──
+  useEffect(()=>{
+    async function load(){
+      try{
+        // Load settings
+        const s = await sb.get("settings","?id=eq.1&select=*");
+        if(s&&s[0]){
+          const row=s[0];
+          setSettingsState({
+            cashapp:row.cashapp||"$FirstClassWings",
+            venmo:row.venmo||"FirstClassWings",
+            zelle:row.zelle||"912-227-4387",
+            pickupAddress:row.pickup_address||"Text owner for pickup address",
+            ownerPin:row.owner_pin||"1234",
+            dateHours:row.date_hours||{},
+          });
+        }
+        // Load orders
+        const o = await sb.get("orders","?select=*&order=created_at.desc");
+        if(o&&Array.isArray(o)){
+          setOrders(o.map(r=>({
+            id:r.id, orderNum:r.order_num, status:r.status,
+            firstName:r.first_name, lastName:r.last_name, phone:r.phone,
+            notes:r.notes, cartItems:r.cart_items, total:r.total,
+            pay:r.pay, orderTime:r.order_time, specDay:r.spec_day,
+            reqDay:r.req_day, time:r.time, date:r.date,
+          })));
+        }
+        // Load open dates
+        const d = await sb.get("open_dates","?select=date_key");
+        if(d&&Array.isArray(d)){
+          const obj={};
+          d.forEach(row=>{ obj[row.date_key]=true; });
+          setOpenDates(obj);
+        }
+      }catch(e){ console.error("Supabase load error:",e); }
+      setLoading(false);
+    }
+    load();
+  },[]);
 
+  // ── SAVE SETTINGS TO SUPABASE ──
+  async function setSettings(updater){
+    const next = typeof updater==="function" ? updater(settings) : updater;
+    setSettingsState(next);
+    try{
+      await sb.patch("settings","?id=eq.1",{
+        cashapp:next.cashapp, venmo:next.venmo, zelle:next.zelle,
+        pickup_address:next.pickupAddress, owner_pin:next.ownerPin,
+        date_hours:next.dateHours, updated_at:new Date().toISOString(),
+      });
+    }catch(e){ console.error("Settings save error:",e); }
+  }
+
+  // ── TOGGLE DATE IN SUPABASE ──
   const isDateOpen = (key) => !!openDates[key];
-  const toggleDate = (key) => { setOpenDates(p=>{ const n={...p}; n[key]?delete n[key]:(n[key]=true); return n; }); };
+  async function toggleDate(key){
+    if(openDates[key]){
+      setOpenDates(p=>{ const n={...p}; delete n[key]; return n; });
+      try{ await sb.delete("open_dates",`?date_key=eq.${key}`); }catch(e){ console.error(e); }
+    } else {
+      setOpenDates(p=>({...p,[key]:true}));
+      try{ await sb.post("open_dates",{date_key:key}); }catch(e){ console.error(e); }
+    }
+  }
 
-  // navigation stack
-  function navigate(screen){
-    setCustScreen(screen);
-    setScreenHistory(h=>[...h,screen]);
+  // ── ADD ORDER TO SUPABASE ──
+  async function addOrder(o){
+    try{
+      const rows = await sb.post("orders",{
+        order_num:o.orderNum, status:"new",
+        first_name:o.firstName, last_name:o.lastName, phone:o.phone,
+        notes:o.notes, cart_items:o.cartItems, total:o.total,
+        pay:o.pay, order_time:o.orderTime, spec_day:o.specDay,
+        req_day:o.reqDay, time:o.time, date:o.date,
+      });
+      if(rows&&rows[0]){
+        setOrders(p=>[{
+          id:rows[0].id, orderNum:rows[0].order_num, status:"new",
+          firstName:o.firstName, lastName:o.lastName, phone:o.phone,
+          notes:o.notes, cartItems:o.cartItems, total:o.total,
+          pay:o.pay, orderTime:o.orderTime, specDay:o.specDay,
+          reqDay:o.reqDay, time:o.time, date:o.date,
+        },...p]);
+      }
+    }catch(e){ console.error("Order save error:",e); }
   }
-  function goBack(){
-    setScreenHistory(h=>{ if(h.length<=1) return h; const nh=h.slice(0,-1); setCustScreen(nh[nh.length-1]); return nh; });
+
+  // ── UPDATE ORDER STATUS IN SUPABASE ──
+  async function upStatus(id,s){
+    setOrders(p=>p.map(o=>o.id===id?{...o,status:s}:o));
+    try{ await sb.patch("orders",`?id=eq.${id}`,{status:s}); }catch(e){ console.error(e); }
+    showToast(s==="ready"?"🍗 Ready!":"✅ Done!");
   }
+
+  async function confirmOrder(id){
+    setOrders(p=>p.map(o=>o.id===id?{...o,status:"confirmed"}:o));
+    try{ await sb.patch("orders",`?id=eq.${id}`,{status:"confirmed"}); }catch(e){ console.error(e); }
+    const o=orders.find(x=>x.id===id);
+    if(o) showToast(`✅ ${o.orderNum} confirmed!`);
+  }
+
+  async function clearCompleted(){
+    setOrders(p=>p.filter(o=>o.status!=="done"));
+    try{ await sb.delete("orders","?status=eq.done"); }catch(e){ console.error(e); }
+    showToast("Cleared!");
+  }
+
+  const loginOwner=()=>{ if(ownerPin===settings.ownerPin){setOwnerUnlocked(true);showToast("Welcome back! 👑");}else showToast("Wrong PIN!"); };
+
+  // navigation
+  function navigate(screen){ setCustScreen(screen); setScreenHistory(h=>[...h,screen]); }
+  function goBack(){ setScreenHistory(h=>{ if(h.length<=1) return h; const nh=h.slice(0,-1); setCustScreen(nh[nh.length-1]); return nh; }); }
   const canGoBack = screenHistory.length > 1;
 
   function getOpenDayNamesThisWeek(){
@@ -478,16 +611,18 @@ export default function App(){
     return DAYS.filter((_,i)=>{ const off=(i+1)-dow; const d=new Date(now); d.setDate(now.getDate()+off); return isDateOpen(dateKey(d.getFullYear(),d.getMonth(),d.getDate())); });
   }
 
-  const addOrder=(o)=>setOrders(p=>[{...o,id:Date.now(),status:"new"},...p]);
-  const confirmOrder=(id)=>{ setOrders(p=>p.map(o=>o.id===id?{...o,status:"confirmed"}:o)); const o=orders.find(x=>x.id===id); if(o) showToast(`✅ ${o.orderNum} confirmed!`); };
-  const upStatus=(id,s)=>{ setOrders(p=>p.map(o=>o.id===id?{...o,status:s}:o)); showToast(s==="ready"?"🍗 Ready!":"✅ Done!"); };
-  const loginOwner=()=>{ if(ownerPin===settings.ownerPin){setOwnerUnlocked(true);showToast("Welcome back! 👑");}else showToast("Wrong PIN!"); };
-  const clearCompleted=()=>{ setOrders(p=>p.filter(o=>o.status!=="done")); showToast("Cleared!"); };
-
   const newCt        = orders.filter(o=>o.status==="new").length;
   const confirmedCt  = orders.filter(o=>o.status==="confirmed").length;
   const todayTot     = orders.filter(o=>["confirmed","ready","done"].includes(o.status)).reduce((s,o)=>s+o.total,0);
   const openDayNames = getOpenDayNamesThisWeek();
+
+  if(loading) return(
+    <div style={{background:"#0a0a0a",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,color:"#f5a623",letterSpacing:3}}>FIRST <span style={{color:"#f5f0e8"}}>CLASS</span> WINGS</div>
+      <div style={{width:40,height:40,border:"3px solid #252525",borderTop:"3px solid #f5a623",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 
   return(
     <div className="app">
@@ -597,14 +732,13 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     if(!form.firstName.trim()) e.firstName="Required";
     if(!form.lastName.trim()) e.lastName="Required";
     if(form.phone.replace(/\D/g,"").length<10) e.phone="Valid 10-digit number required";
-    if(!pay) e.pay="Select a payment method";
     setErrors(e); return Object.keys(e).length===0;
   }
 
   function submitOrder(){
     if(!validate()) return;
-    const n=new Date(); const orderNum=genOrderNum(); const time=fmtTime(n); const date=fmtDate(n);
-    const order={cartItems:cart,total:cartTotal,orderNum,time,date,...form,pay,orderTime};
+    const now=new Date(); const orderNum=genOrderNum(); const time=fmtTime(now); const date=fmtDate(now);
+    const order={cartItems:cart,total:cartTotal,orderNum,time,date,...form,pay:"cashapp",specDay:orderTime?.isSpecial||false,reqDay:orderTime?.day||""};
     addOrder(order); setLastOrder(order); navigate("receipt");
     setCart([]); setB(fresh()); setStep(1);
     setForm({firstName:"",lastName:"",phone:"",notes:""}); setPay(null);
@@ -624,7 +758,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     return(
       <div>
         <div className="back-bar">
-          <span className="bar-title">Receipt</span>
+          <span className="bar-title">Order Placed!</span>
         </div>
         <div className="receipt">
           <div className="receipt-hdr">
@@ -632,11 +766,22 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             <div className="receipt-ordernum">{lastOrder.orderNum}</div>
             <div className="receipt-date">{lastOrder.date} · {lastOrder.time}</div>
           </div>
-          <div className="receipt-pending">⏳ Awaiting Payment + Owner Confirmation</div>
+
+          {/* ORDER SUMMARY FIRST */}
+          <div className="rs-card">
+            <div className="rs-title">Your Order</div>
+            {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
+            {lastOrder.orderTime?.day&&<div className="rs-row"><span className="rs-lbl">Requested</span><span className="rs-val">{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>}
+            {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
+            <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
+          </div>
+
+          {/* PAYMENT — clear and simple */}
           <div className="warn-banner">
             <span className="ban-ico">⚠️</span>
-            <div className="ban-txt"><strong>Send payment now to lock in your order.</strong> Your order is not confirmed until payment is received and the owner verifies it.</div>
+            <div className="ban-txt"><strong>Send payment to confirm your order.</strong> Your order won't be prepared until payment is received.</div>
           </div>
+
           <div className="pay-actions">
             <a className="pa-btn pa-cashapp" href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
               <span>💚</span><span style={{flex:1}}>Pay with Cash App</span><span className="pa-amount">${lastOrder.total}</span>
@@ -648,33 +793,23 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               <span>📱</span><span style={{flex:1}}>Zelle: {settings.zelle}</span><span className="pa-amount">${lastOrder.total}</span>
             </a>
           </div>
+
+          {/* PAYMENT NOTE */}
           <div className="pay-note-card">
-            <div className="pn-title"><div className="pn-dot"/>Step 2 — Add This Note to Your Payment</div>
-            <div className="pn-desc" style={{marginTop:5}}><strong>Important:</strong> Copy and paste this into the memo/description field when you pay. This connects your payment to your order.</div>
+            <div className="pn-title"><div className="pn-dot"/>Add This Note to Your Payment</div>
+            <div className="pn-desc" style={{marginTop:5}}>Paste into the memo/description when you pay — this connects your payment to your order.</div>
             <div className="pn-body">{payNote}</div>
             <button className={`copy-btn ${copied?"copy-done":"copy-idle"}`} onClick={()=>copyNote(payNote)}>
-              {copied?"✓ Copied!":"📋 Tap to Copy Payment Note"}
+              {copied?"✓ Copied!":"📋 Tap to Copy"}
             </button>
           </div>
-          <div className="rs-card">
-            <div className="rs-title">Order Summary</div>
-            {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
-            {lastOrder.orderTime?.day&&<div className="rs-row"><span className="rs-lbl">Requested For</span><span className="rs-val">{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>}
-            {lastOrder.orderTime?.isSpecial&&<div className="rs-row"><span className="rs-lbl">Type</span><span className="rs-val">Special Day Request</span></div>}
-            {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
-            <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
-          </div>
-          <div className="rs-card">
-            <div className="rs-title">Customer Info</div>
-            <div className="rs-row"><span className="rs-lbl">Name</span><span className="rs-val">{lastOrder.firstName} {lastOrder.lastName}</span></div>
-            <div className="rs-row"><span className="rs-lbl">Phone</span><span className="rs-val">{lastOrder.phone}</span></div>
-            <div className="rs-row"><span className="rs-lbl">Payment</span><span className="rs-val">Cash App / Venmo / Zelle</span></div>
-          </div>
-          <div className="screenshot-note">📸 <strong>Screenshot this receipt</strong> as proof of your order</div>
+
+          <div className="screenshot-note">📸 <strong>Screenshot this screen</strong> as proof of your order</div>
           <div className="info-banner">
             <span className="ban-ico">📱</span>
-            <div className="ban-txt">Once confirmed, you'll get a text at <strong>{lastOrder.phone}</strong>.</div>
+            <div className="ban-txt">Once payment is confirmed, you'll get a text at <strong>{lastOrder.phone}</strong>.</div>
           </div>
+
           <button className="btn btn-or" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>Place Another Order</button>
           <div style={{height:20}}/>
         </div>
@@ -738,29 +873,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           <div className="sec-hdr" style={{marginTop:12}}><div className="sec-title">When Do You Want It?</div><div className="sec-line"/></div>
           <TimeDayPicker orderTime={orderTime} setOrderTime={setOrderTime} thisWeekOpenDays={thisWeekOpenDays} settings={settings}/>
 
-          {/* PAYMENT */}
-          <div className="sec-hdr" style={{marginTop:12}}><div className="sec-title">Payment</div><div className="sec-line"/></div>
-          {errors.pay&&<div className="ferr" style={{marginBottom:7}}>{errors.pay}</div>}
-          <div className="pay-opts">
-            <div className={`pay-opt ${pay==="cashapp"?"sel":""}`} onClick={()=>{setPay("cashapp");setErrors(er=>({...er,pay:""}));}}>
-              <span style={{fontSize:19}}>💳</span>
-              <div><div className="pay-name">Cash App / Venmo / Zelle</div><div className="pay-sub">Tap to open your payment app instantly — free</div></div>
-              <div className="pay-radio"/>
-            </div>
-          </div>
-          {pay==="cashapp"&&(
-            <>
-              <div className="warn-banner">
-                <span className="ban-ico">⚠️</span>
-                <div className="ban-txt"><strong>Order won't be confirmed until payment is received.</strong> After placing, tap a payment button and include the note.</div>
-              </div>
-              <div className="pay-note-card">
-                <div className="pn-title"><div className="pn-dot"/>Payment Note Preview</div>
-                <div className="pn-desc" style={{marginTop:4}}>After placing, <strong>copy this note</strong> and paste it into the payment memo/description field.</div>
-                <div className="pn-body">{previewNote}</div>
-              </div>
-            </>
-          )}
           <button className="btn btn-or" onClick={submitOrder}>🔥 Place Order — ${cartTotal}</button>
           <div style={{height:20}}/>
         </div>
@@ -1243,8 +1355,17 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
             <div className="stitle">🔐 Security</div>
             <div className="form-grp"><label className="flabel">Dashboard PIN</label><input className="finput" type="password" value={settings.ownerPin||""} onChange={e=>setSettings(s=>({...s,ownerPin:e.target.value}))} placeholder="Change PIN"/></div>
           </div>
-          <button className="btn btn-or" onClick={()=>showToast("Settings saved! ✅")}>Save Settings</button>
-          <p className="note" style={{marginTop:7,textAlign:"center"}}>✅ All settings save automatically to this device</p>
+          <button className="btn btn-or" onClick={async()=>{
+            try{
+              await sb.patch("settings","?id=eq.1",{
+                cashapp:settings.cashapp, venmo:settings.venmo, zelle:settings.zelle,
+                pickup_address:settings.pickupAddress, owner_pin:settings.ownerPin,
+                date_hours:settings.dateHours||{}, updated_at:new Date().toISOString(),
+              });
+              showToast("Settings saved to cloud! ☁️✅");
+            }catch(e){ showToast("Save failed — check connection"); }
+          }}>Save Settings</button>
+          <p className="note" style={{marginTop:7,textAlign:"center"}}>☁️ Saves to Supabase — works on all devices</p>
 
           {completedCount>0&&(
             <div style={{marginTop:14}}>
