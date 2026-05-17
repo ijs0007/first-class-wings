@@ -635,6 +635,8 @@ export default function App(){
     </div>
   );
 
+  const [installModal,setInstallModal] = useState(false);
+
   return(
     <div className="app">
       <style>{CSS}</style>
@@ -643,11 +645,56 @@ export default function App(){
         <div className="nav-tabs">
           <button className={`ntab ${view==="customer"?"active":""}`} onClick={()=>setView("customer")}>Order</button>
           <button className="ntab" onClick={()=>setMenuOpen(true)}>Menu</button>
+          <button className="ntab install-btn" onClick={()=>setInstallModal(true)} title="Add to Home Screen">📲</button>
           <button className={`ntab ${view==="owner"?"active":""}`} onClick={()=>setView("owner")}>
             Owner{newCt>0?` (${newCt})`:""}
           </button>
         </div>
       </nav>
+
+      {/* INSTALL MODAL */}
+      {installModal&&(
+        <div className="modal-overlay" onClick={()=>setInstallModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:340,textAlign:"left"}}>
+            <div className="modal-title" style={{textAlign:"center",marginBottom:4}}>📲 Add to Home Screen</div>
+            <p style={{fontSize:10,color:"var(--gr)",textAlign:"center",marginBottom:16}}>Get the full app experience — faster, no browser bar, works like a real app!</p>
+
+            {/* iPhone */}
+            <div style={{marginBottom:14,padding:"12px",background:"rgba(245,166,35,.04)",border:"1px solid rgba(245,166,35,.15)",borderRadius:8}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"var(--or)",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>🍎 iPhone / iPad</div>
+              {[
+                {icon:"1️⃣", text:'Open this page in Safari (not Chrome)'},
+                {icon:"2️⃣", text:'Tap the Share button ⬆️ at the bottom of the screen'},
+                {icon:"3️⃣", text:'Scroll down and tap "Add to Home Screen"'},
+                {icon:"4️⃣", text:'Tap "Add" in the top right — done! 🎉'},
+              ].map((s,i)=>(
+                <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:6}}>
+                  <span style={{fontSize:13,flexShrink:0}}>{s.icon}</span>
+                  <span style={{fontSize:11,color:"var(--wh)",lineHeight:1.5}}>{s.text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Android */}
+            <div style={{marginBottom:16,padding:"12px",background:"rgba(41,128,185,.04)",border:"1px solid rgba(41,128,185,.15)",borderRadius:8}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#78b8d8",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>🤖 Android</div>
+              {[
+                {icon:"1️⃣", text:'Open this page in Chrome'},
+                {icon:"2️⃣", text:'Tap the 3-dot menu ⋮ in the top right'},
+                {icon:"3️⃣", text:'Tap "Add to Home Screen"'},
+                {icon:"4️⃣", text:'Tap "Add" — done! 🎉'},
+              ].map((s,i)=>(
+                <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:6}}>
+                  <span style={{fontSize:13,flexShrink:0}}>{s.icon}</span>
+                  <span style={{fontSize:11,color:"var(--wh)",lineHeight:1.5}}>{s.text}</span>
+                </div>
+              ))}
+            </div>
+
+            <button className="btn btn-or" onClick={()=>setInstallModal(false)}>Got it! 👑</button>
+          </div>
+        </div>
+      )}
 
       {view==="customer" &&
         <CustomerView
@@ -1187,15 +1234,72 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
   const [clearSelected,setClearSelected]     = useState(new Set());
   const [unconfirmModal,setUnconfirmModal]   = useState(null);
   const [raincheckModal,setRaincheckModal]   = useState(null);
+  const [attempts,setAttempts]               = useState(0);
+  const [lockedUntil,setLockedUntil]         = useState(null);
   const completedCount = orders.filter(o=>o.status==="done").length;
 
+  const MAX_ATTEMPTS = 5;
+  const LOCKOUT_MINS = 10;
+  const isLocked = lockedUntil && new Date() < lockedUntil;
+  const lockMinsLeft = isLocked ? Math.ceil((lockedUntil - new Date()) / 60000) : 0;
+
+  function validatePin(p){
+    if(p.length<8) return "PIN must be at least 8 characters";
+    if(!/[A-Z]/.test(p)) return "PIN must include an uppercase letter";
+    if(!/[a-z]/.test(p)) return "PIN must include a lowercase letter";
+    if(!/[0-9]/.test(p)) return "PIN must include a number";
+    if(!/[^A-Za-z0-9]/.test(p)) return "PIN must include a symbol (e.g. ! @ # $)";
+    return null;
+  }
+
+  function handleLogin(){
+    if(isLocked){ showToast(`🔒 Too many attempts. Try again in ${lockMinsLeft} min.`); return; }
+    const err = validatePin(pin);
+    if(err){ showToast(err); return; }
+    if(pin===settings.ownerPin){
+      setAttempts(0); setLockedUntil(null); onLogin();
+    } else {
+      const newAttempts = attempts+1;
+      setAttempts(newAttempts);
+      if(newAttempts>=MAX_ATTEMPTS){
+        const until = new Date(Date.now() + LOCKOUT_MINS*60*1000);
+        setLockedUntil(until);
+        setAttempts(0);
+        showToast(`🔒 Too many attempts! Locked for ${LOCKOUT_MINS} minutes.`);
+      } else {
+        showToast(`❌ Wrong PIN. ${MAX_ATTEMPTS-newAttempts} attempt${MAX_ATTEMPTS-newAttempts!==1?"s":""} remaining.`);
+      }
+      setPin("");
+    }
+  }
+
   if(!unlocked) return(
-    <div style={{padding:34,maxWidth:270,margin:"0 auto",textAlign:"center"}}>
+    <div style={{padding:34,maxWidth:280,margin:"0 auto",textAlign:"center"}}>
       <div style={{fontSize:38,marginBottom:8}}>👑</div>
       <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:21,color:"var(--or)",letterSpacing:2,marginBottom:4}}>Owner Login</div>
       <p style={{fontSize:10,color:"var(--gr)",marginBottom:15}}>Enter your PIN to access the dashboard</p>
-      <input className="finput" type="password" placeholder="Enter PIN" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&onLogin()} style={{textAlign:"center",fontSize:19,letterSpacing:8,marginBottom:7}}/>
-      <button className="btn btn-or" onClick={onLogin}>Unlock Dashboard</button>
+
+      {isLocked?(
+        <div style={{background:"rgba(192,57,43,.1)",border:"1px solid rgba(192,57,43,.3)",borderRadius:8,padding:"16px",marginBottom:12}}>
+          <div style={{fontSize:28,marginBottom:6}}>🔒</div>
+          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:13,color:"var(--rd)",letterSpacing:1,marginBottom:4}}>LOCKED</div>
+          <div style={{fontSize:11,color:"#b08080",lineHeight:1.5}}>Too many failed attempts.<br/>Try again in <strong style={{color:"var(--rd)"}}>{lockMinsLeft} minute{lockMinsLeft!==1?"s":""}</strong>.</div>
+        </div>
+      ):(
+        <>
+          <input className="finput" type="password" inputMode="text"
+            placeholder="Enter PIN" value={pin}
+            onChange={e=>setPin(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&handleLogin()}
+            style={{textAlign:"center",fontSize:18,letterSpacing:6,marginBottom:7}}/>
+          {attempts>0&&(
+            <p style={{fontSize:10,color:"var(--rd)",marginBottom:8}}>
+              {MAX_ATTEMPTS-attempts} attempt{MAX_ATTEMPTS-attempts!==1?"s":""} remaining
+            </p>
+          )}
+          <button className="btn btn-or" onClick={handleLogin}>Unlock Dashboard</button>
+        </>
+      )}
     </div>
   );
 
@@ -1790,15 +1894,36 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
 // ── PIN FIELD WITH EYE TOGGLE ─────────────────────────────────────────────────
 function PinField({value,onChange}){
   const [show,setShow]=useState(false);
+  const checks=[
+    {label:"8+ characters",ok:value.length>=8},
+    {label:"Uppercase letter",ok:/[A-Z]/.test(value)},
+    {label:"Lowercase letter",ok:/[a-z]/.test(value)},
+    {label:"Number",ok:/[0-9]/.test(value)},
+    {label:"Symbol (! @ # $ etc)",ok:/[^A-Za-z0-9]/.test(value)},
+  ];
   return(
-    <div style={{position:"relative",display:"flex",alignItems:"center"}}>
-      <input className="finput" type={show?"text":"password"} value={value}
-        onChange={e=>onChange(e.target.value)} placeholder="Enter new PIN"
-        style={{paddingRight:40,letterSpacing:show?2:6,fontSize:16}}/>
-      <button onClick={()=>setShow(s=>!s)} style={{
-        position:"absolute",right:10,background:"none",border:"none",
-        color:"var(--gr)",cursor:"pointer",fontSize:16,padding:4,lineHeight:1
-      }}>{show?"🙈":"👁"}</button>
+    <div>
+      <div style={{position:"relative",display:"flex",alignItems:"center"}}>
+        <input className="finput" type={show?"text":"password"} inputMode="text"
+          value={value}
+          onChange={e=>onChange(e.target.value)}
+          placeholder="Min 8 chars, upper, lower, number, symbol"
+          style={{paddingRight:40,fontSize:14}}/>
+        <button onClick={()=>setShow(s=>!s)} style={{
+          position:"absolute",right:10,background:"none",border:"none",
+          color:"var(--gr)",cursor:"pointer",fontSize:16,padding:4,lineHeight:1
+        }}>{show?"🙈":"👁"}</button>
+      </div>
+      {value.length>0&&(
+        <div style={{marginTop:6,display:"flex",flexDirection:"column",gap:3}}>
+          {checks.map(c=>(
+            <div key={c.label} style={{display:"flex",gap:6,alignItems:"center"}}>
+              <span style={{fontSize:10,color:c.ok?"var(--ok)":"#333"}}>{c.ok?"✓":"○"}</span>
+              <span style={{fontSize:9,color:c.ok?"var(--ok)":"#444",fontFamily:"'Oswald',sans-serif",letterSpacing:.3}}>{c.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
