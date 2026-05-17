@@ -1229,6 +1229,37 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
               ))}
             </div>
           }
+          {/* CLEAR ORDERS — in orders tab, hidden behind toggle */}
+          {completedCount>0&&(
+            <div style={{marginTop:14,padding:"0 2px"}}>
+              <div className="scard" style={{borderColor:"rgba(192,57,43,.2)"}}>
+                <div className="stitle" style={{color:"var(--rd)"}}>🗑 Order History</div>
+                <p style={{fontSize:10,color:"var(--gr)",marginBottom:10,lineHeight:1.5}}>
+                  You have <strong style={{color:"var(--wh)"}}>{completedCount} completed order{completedCount!==1?"s":""}</strong>. Clearing is permanent and cannot be undone.
+                </p>
+                {!showClearToggle?(
+                  <button className="btn btn-ghost" style={{fontSize:11,borderColor:"rgba(192,57,43,.3)",color:"#b08080"}}
+                    onClick={()=>setShowClearToggle(true)}>Show Clear Option</button>
+                ):(
+                  <>
+                    <div className="clear-warn" style={{marginBottom:10}}>⚠️ <strong>This cannot be undone.</strong> Only orders marked Done will be removed.</div>
+                    <p style={{fontSize:10,color:"var(--gr)",marginBottom:6}}>Type <strong style={{color:"var(--rd)"}}>CLEAR</strong> to confirm:</p>
+                    <input className="finput" placeholder="Type CLEAR to confirm"
+                      value={clearConfirmText} onChange={e=>setClearConfirmText(e.target.value)}
+                      style={{marginBottom:8,borderColor:clearConfirmText==="CLEAR"?"var(--rd)":"var(--bdr)"}}/>
+                    <div style={{display:"flex",gap:8}}>
+                      <button className="btn btn-ghost" style={{flex:1}} onClick={()=>{setShowClearToggle(false);setClearConfirmText("");}}>Cancel</button>
+                      <button className="btn btn-danger" style={{flex:1,opacity:clearConfirmText==="CLEAR"?1:.35}}
+                        disabled={clearConfirmText!=="CLEAR"}
+                        onClick={()=>{clearCompleted();setShowClearToggle(false);setClearConfirmText("");}}>
+                        🗑 Clear {completedCount} Orders
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -1359,40 +1390,6 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
           }}>Save Settings</button>
           <p className="note" style={{marginTop:7,textAlign:"center"}}>☁️ Saves to Supabase — works on all devices</p>
 
-          {completedCount>0&&(
-            <div style={{marginTop:14}}>
-              <div className="scard" style={{borderColor:"rgba(192,57,43,.25)"}}>
-                <div className="stitle" style={{color:"var(--rd)"}}>🗑 Order History</div>
-                <p style={{fontSize:10,color:"var(--gr)",marginBottom:10,lineHeight:1.5}}>
-                  You have <strong style={{color:"var(--wh)"}}>{completedCount} completed order{completedCount!==1?"s":""}</strong>. Clearing is permanent and cannot be undone.
-                </p>
-                {!showClearToggle?(
-                  <button className="btn btn-ghost" style={{fontSize:11,borderColor:"rgba(192,57,43,.3)",color:"#b08080"}}
-                    onClick={()=>setShowClearToggle(true)}>
-                    Show Clear Option
-                  </button>
-                ):(
-                  <>
-                    <div className="clear-warn" style={{marginBottom:10}}>
-                      ⚠️ <strong>This cannot be undone.</strong> Only orders marked Done will be removed. Active orders are safe.
-                    </div>
-                    <p style={{fontSize:10,color:"var(--gr)",marginBottom:6}}>Type <strong style={{color:"var(--rd)"}}>CLEAR</strong> to confirm:</p>
-                    <input className="finput" placeholder="Type CLEAR to confirm"
-                      value={clearConfirmText} onChange={e=>setClearConfirmText(e.target.value)}
-                      style={{marginBottom:8,borderColor:clearConfirmText==="CLEAR"?"var(--rd)":"var(--bdr)"}}/>
-                    <div style={{display:"flex",gap:8}}>
-                      <button className="btn btn-ghost" style={{flex:1}} onClick={()=>{setShowClearToggle(false);setClearConfirmText("");}}>Cancel</button>
-                      <button className="btn btn-danger" style={{flex:1,opacity:clearConfirmText==="CLEAR"?1:.35}}
-                        disabled={clearConfirmText!=="CLEAR"}
-                        onClick={()=>{clearCompleted();setShowClearToggle(false);setClearConfirmText("");}}>
-                        🗑 Clear {completedCount} Orders
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
           <div style={{height:20}}/>
         </>
       )}
@@ -1435,21 +1432,17 @@ function BlastTab({orders,showToast}){
   ).values()];
 
   const todayIdx = new Date().getDate() % AUTO_MESSAGES.length;
-  const [autoIdx,setAutoIdx]       = useState(todayIdx);
-  const [useAuto,setUseAuto]       = useState(true);
-  const [useCustom,setUseCustom]   = useState(false);
-  const [customMsg,setCustomMsg]   = useState("");
+  const [autoIdx,setAutoIdx]     = useState(todayIdx);
+  const [msgMode,setMsgMode]     = useState("auto"); // "auto" or "custom"
+  const [customMsg,setCustomMsg] = useState("");
 
   function getFinalMsg(name){
-    const auto  = AUTO_MESSAGES[autoIdx].replace(/\{name\}/g, name||"");
-    const parts = [];
-    if(useAuto)   parts.push(auto);
-    if(useCustom && customMsg.trim()) parts.push(customMsg.trim());
-    return parts.join("\n\n") || "No message selected.";
+    if(msgMode==="auto") return AUTO_MESSAGES[autoIdx].replace(/\{name\}/g, name||"");
+    return customMsg.trim().replace(/\{name\}/g, name||"");
   }
 
   const previewMsg = getFinalMsg("there");
-  const ready = useAuto || (useCustom && customMsg.trim());
+  const ready = msgMode==="auto" || (msgMode==="custom" && customMsg.trim());
 
   if(allCustomers.length===0) return(
     <div className="blast-section">
@@ -1464,18 +1457,16 @@ function BlastTab({orders,showToast}){
       <div className="blast-sub">Build your message below, then tap 📱 next to any customer to open their SMS pre-filled and ready to send.</div>
 
       {/* AUTO MESSAGE */}
-      <div className="scard" style={{marginBottom:9}}>
+      <div className="scard" style={{marginBottom:9,borderColor:msgMode==="auto"?"rgba(245,166,35,.4)":"var(--bdr)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,color:"var(--or)",textTransform:"uppercase"}}>✨ Auto Message</div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:10,color:"var(--gr)"}}>Use this</span>
-            <div onClick={()=>setUseAuto(p=>!p)} style={{
-              width:36,height:20,borderRadius:10,background:useAuto?"var(--or)":"#333",
-              cursor:"pointer",position:"relative",transition:"background .2s"
-            }}>
-              <div style={{position:"absolute",top:2,left:useAuto?18:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
-            </div>
-          </div>
+          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,color:msgMode==="auto"?"var(--or)":"var(--gr)",textTransform:"uppercase"}}>✨ Auto Message</div>
+          <button onClick={()=>setMsgMode("auto")} style={{
+            background:msgMode==="auto"?"var(--or)":"none",
+            border:`1px solid ${msgMode==="auto"?"var(--or)":"#333"}`,
+            color:msgMode==="auto"?"#000":"var(--gr)",
+            fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,
+            padding:"3px 10px",borderRadius:20,cursor:"pointer",textTransform:"uppercase"
+          }}>{msgMode==="auto"?"✓ Selected":"Use This"}</button>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
           <button onClick={()=>setAutoIdx(i=>(i-1+AUTO_MESSAGES.length)%AUTO_MESSAGES.length)}
@@ -1486,29 +1477,26 @@ function BlastTab({orders,showToast}){
           <button onClick={()=>setAutoIdx(i=>(i+1)%AUTO_MESSAGES.length)}
             style={{background:"none",border:"1px solid var(--bdr)",color:"var(--gr)",width:28,height:28,borderRadius:4,cursor:"pointer",fontSize:14,flexShrink:0}}>▶</button>
         </div>
-        <div style={{background:"#0c0c0c",border:"1px solid #222",borderRadius:6,padding:"9px 10px",fontSize:11,color:useAuto?"var(--wh)":"#333",lineHeight:1.6,fontStyle:"italic",transition:"color .2s"}}>
+        <div style={{background:"#0c0c0c",border:"1px solid #222",borderRadius:6,padding:"9px 10px",fontSize:11,color:msgMode==="auto"?"var(--wh)":"#444",lineHeight:1.6,fontStyle:"italic",transition:"color .2s"}}>
           "{AUTO_MESSAGES[autoIdx].replace(/\{name\}/g,"[Name]")}"
         </div>
       </div>
 
       {/* CUSTOM MESSAGE */}
-      <div className="scard" style={{marginBottom:9}}>
+      <div className="scard" style={{marginBottom:9,borderColor:msgMode==="custom"?"rgba(245,166,35,.4)":"var(--bdr)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,color:"var(--or)",textTransform:"uppercase"}}>✏️ Custom Message</div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:10,color:"var(--gr)"}}>Use this</span>
-            <div onClick={()=>setUseCustom(p=>!p)} style={{
-              width:36,height:20,borderRadius:10,background:useCustom?"var(--or)":"#333",
-              cursor:"pointer",position:"relative",transition:"background .2s"
-            }}>
-              <div style={{position:"absolute",top:2,left:useCustom?18:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
-            </div>
-          </div>
+          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,color:msgMode==="custom"?"var(--or)":"var(--gr)",textTransform:"uppercase"}}>✏️ Custom Message</div>
+          <button onClick={()=>setMsgMode("custom")} style={{
+            background:msgMode==="custom"?"var(--or)":"none",
+            border:`1px solid ${msgMode==="custom"?"var(--or)":"#333"}`,
+            color:msgMode==="custom"?"#000":"var(--gr)",
+            fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,
+            padding:"3px 10px",borderRadius:20,cursor:"pointer",textTransform:"uppercase"
+          }}>{msgMode==="custom"?"✓ Selected":"Use This"}</button>
         </div>
-        <textarea className="finput" rows={3} placeholder="Write your own message here..."
+        <textarea className="finput" rows={3} placeholder="Write your own message here... Use {name} to personalize"
           value={customMsg} onChange={e=>setCustomMsg(e.target.value)}
-          style={{fontSize:12,opacity:useCustom?1:.4,transition:"opacity .2s"}}
-          disabled={!useCustom}/>
+          style={{fontSize:12,opacity:msgMode==="custom"?1:.4,transition:"opacity .2s"}}/>
       </div>
 
       {/* PREVIEW */}
@@ -1519,7 +1507,7 @@ function BlastTab({orders,showToast}){
         </div>
       )}
 
-      {/* CUSTOMER LIST WITH INDIVIDUAL TEXT BUTTONS */}
+      {/* CUSTOMER LIST */}
       <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1.5,color:"var(--or)",textTransform:"uppercase",marginBottom:8}}>
         Customers — {allCustomers.length} total
       </div>
@@ -1535,16 +1523,20 @@ function BlastTab({orders,showToast}){
             </div>
             {ready?(
               <a href={`sms:${c.phone}&body=${encodeURIComponent(getFinalMsg(c.name?.split(" ")[0]||""))}`}
-                style={{
-                  background:"rgba(41,128,185,.15)",border:"1px solid rgba(41,128,185,.35)",
-                  color:"#78b8d8",fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:.5,
-                  padding:"6px 10px",borderRadius:5,textDecoration:"none",display:"flex",
-                  alignItems:"center",gap:4,whiteSpace:"nowrap",flexShrink:0
+                style={{textDecoration:"none",flexShrink:0}}>
+                <div style={{
+                  background:"var(--or)",borderRadius:22,padding:"7px 14px",
+                  display:"flex",alignItems:"center",gap:6,
                 }}>
-                📱 Text
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:.5,color:"#000",fontWeight:600}}>Text</span>
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <rect width="18" height="18" rx="9" fill="#000" fillOpacity=".18"/>
+                    <path d="M5 9h8M10 6l3 3-3 3" stroke="#000" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
               </a>
             ):(
-              <div style={{fontSize:10,color:"#333",fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>Pick message ↑</div>
+              <div style={{fontSize:10,color:"#333",fontFamily:"'Oswald',sans-serif",letterSpacing:.5,flexShrink:0}}>Pick msg ↑</div>
             )}
           </div>
         ))}
