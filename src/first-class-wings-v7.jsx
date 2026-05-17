@@ -48,7 +48,6 @@ const FLAVORS = [
   { id:"buffalo-lemon-pepper", name:"Buffalo Lemon Pepper", emoji:"💥", desc:"Buffalo heat + lemon pepper",  color:"#7d3c98" },
 ];
 const COMBOS = [
-  { id:"test", label:"🧪 Test Order",      wings:1,  price:1,  halfHalf:false },
   { id:"6pc",  label:"6 Wings & Fries",   wings:6,  price:12, halfHalf:false },
   { id:"8pc",  label:"8 Wings & Fries",   wings:8,  price:14, halfHalf:false },
   { id:"10pc", label:"10 Wings & Fries",  wings:10, price:16, halfHalf:true  },
@@ -807,7 +806,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
           </div>
 
-          <div className="screenshot-note">📸 <strong>Screenshot this screen</strong> as proof of your order</div>
+          <div className="screenshot-note">📸 <strong>Screenshot the Order Summary</strong> below as proof of your order number and details</div>
           <div className="info-banner">
             <span className="ban-ico">📱</span>
             <div className="ban-txt">Once payment is confirmed, you'll receive a text at <strong>{lastOrder.phone}</strong>.</div>
