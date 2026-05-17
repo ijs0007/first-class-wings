@@ -705,19 +705,6 @@ export default function App(){
 // ── CUSTOMER VIEW ─────────────────────────────────────────────────────────────
 function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,setCart,buildStep,setBuildStep,building,setBuilding,screen,navigate,goBack,canGoBack,screenHistory,setScreenHistory,setCustScreen}){
   const cartTotal = cart.reduce((s,i)=>s+i.subtotal,0);
-
-  // Persistent cart tray — always visible on all screens when cart has items
-  const CartTray = ()=> cart.length>0 ? (
-    <div className="tray">
-      <div className="tray-badge">{cart.length}</div>
-      <div className="tray-info">
-        <div className="tray-line">{cart.length} item{cart.length!==1?"s":""} in order</div>
-        <div className="tray-total">${cartTotal}</div>
-      </div>
-      {screen!=="checkout"&&<button className="tray-btn" onClick={()=>navigate("checkout")}>View Cart →</button>}
-      {screen==="checkout"&&<button className="tray-btn" onClick={()=>navigate("build")}>+ Add More</button>}
-    </div>
-  ) : null;
   const [form,setForm]         = useLocalStorage("fcw_form",{firstName:"",lastName:"",phone:"",notes:""});
   const [errors,setErrors]     = useState({});
   const [orderTime,setOrderTime]= useLocalStorage("fcw_ordertime",{day:null,time:null,isSpecial:false});
@@ -776,6 +763,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     return(
       <div>
         <div className="back-bar">
+          <button className="back-btn" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>◀ Back</button>
           <span className="bar-title">✅ Order Submitted!</span>
         </div>
         <div className="receipt">
@@ -828,7 +816,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           <button className="btn btn-or" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>Place Another Order</button>
           <div style={{height:20}}/>
         </div>
-        <CartTray/>
       </div>
     );
   }
@@ -889,9 +876,8 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           <TimeDayPicker orderTime={orderTime} setOrderTime={setOrderTime} thisWeekOpenDays={thisWeekOpenDays} settings={settings}/>
 
           <button className="btn btn-or" onClick={submitOrder}>✅ Submit Order — ${cartTotal}</button>
-          <div style={{height:80}}/>
+          <div style={{height:20}}/>
         </div>
-        <CartTray/>
       </div>
     );
   }
@@ -1073,7 +1059,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
         </div>
       )}
 
-      <CartTray/>
+      <div style={{height:20}}/>
     </div>
   );
 }
