@@ -498,7 +498,8 @@ export default function App(){
   const [screenHistory,setScreenHistory] = useLocalStorage("fcw_screen_hist",["build"]);
   const [menuOpen,setMenuOpen]           = useState(false);
   const [installModal,setInstallModal]   = useState(false);
-  const [installDismissed,setInstallDismissed] = useState(()=>!!localStorage.getItem("fcw_install_dismissed"));
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const [installDismissed,setInstallDismissed] = useState(()=>!!sessionStorage.getItem("fcw_install_dismissed"));
 
   // ── LOAD FROM SUPABASE ON MOUNT ──
   useEffect(()=>{
@@ -657,12 +658,12 @@ export default function App(){
       </nav>
 
       {/* GET THE APP BANNER — mobile only, dismissible */}
-      {!installDismissed&&(
+      {!installDismissed&&!isStandalone&&(
         <div className="install-banner">
           <span style={{fontSize:13}}>📲</span>
           <span className="install-banner-text">Add First Class Wings to your home screen</span>
           <button className="install-banner-btn" onClick={()=>setInstallModal(true)}>Get the App</button>
-          <button className="install-banner-x" onClick={()=>{setInstallDismissed(true);localStorage.setItem("fcw_install_dismissed","1");}}>✕</button>
+          <button className="install-banner-x" onClick={()=>{setInstallDismissed(true);sessionStorage.setItem("fcw_install_dismissed","1");}}>✕</button>
         </div>
       )}
 
