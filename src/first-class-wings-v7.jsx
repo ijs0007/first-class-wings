@@ -733,11 +733,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
   function addAndContinue(){ setCart(p=>[...p,buildItem()]); showToast("Added! 🔥"); setB(fresh()); setStep(1); }
   function removeItem(id){ setRemoving(id); setTimeout(()=>{setCart(p=>p.filter(i=>i.id!==id));setRemoving(null);},250); }
 
-  function goCheckout(){
-    if(step>=3&&b.combo&&b.flavor1){setCart(p=>[...p,buildItem()]);setB(fresh());}
-    navigate("checkout");
-  }
-
   function validate(){
     const e={};
     if(!form.firstName.trim()) e.firstName="Required";
@@ -1531,7 +1526,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
       {/* ANALYTICS TAB */}
       {tab==="analytics"&&(()=>{
         const allDone = orders.filter(o=>["confirmed","ready","done","raincheck"].includes(o.status));
-        const today = new Date(); const todayK = dateKey(today.getFullYear(),today.getMonth(),today.getDate());
+        const today = new Date();
         const todayOrders = allDone.filter(o=>o.date&&o.date.includes(today.toLocaleDateString("en-US",{month:"short",day:"numeric"})));
         const totalEarned = allDone.reduce((s,o)=>s+(o.total||0),0);
         const todayEarned = todayOrders.reduce((s,o)=>s+(o.total||0),0);
@@ -1692,7 +1687,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                     onChange={e=>setSettings(s=>({...s,customMsgs:{...s.customMsgs,[key]:e.target.value}}))}
                     placeholder={placeholder}
                     style={{fontSize:11,opacity:enabled?1:.35,transition:"opacity .2s"}}/>
-                  {enabled&&<p style={{fontSize:9,color:"var(--gr)",marginTop:3}}>Variables: {"{name}"} {"{orderNum}"} {"{total}"} {"{pickup}"}</p>}
+                  {enabled&&<p style={{fontSize:9,color:"var(--gr)",marginTop:3}}>Variables: {"\{name\}"} {"\{orderNum\}"} {"\{total\}"} {"\{pickup\}"}</p>}
                 </div>
               );
             })}
