@@ -1141,7 +1141,8 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
   const [tab,setTab]         = useState("orders");
   const [calView,setCalView] = useState("week");
   const [calMonth,setCalMonth]= useState(()=>{ const n=new Date(); return{y:n.getFullYear(),m:n.getMonth()}; });
-  const [showClearModal,setShowClearModal] = useState(false);
+  const [showClearToggle,setShowClearToggle] = useState(false);
+  const [clearConfirmText,setClearConfirmText] = useState("");
   const completedCount = orders.filter(o=>o.status==="done").length;
 
   if(!unlocked) return(
@@ -1188,7 +1189,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
       <div className="dtabs">
         {["orders","calendar","blast","settings"].map(t=>(
           <button key={t} className={`dtab ${tab===t?"active":""}`} onClick={()=>setTab(t)}>
-            {t==="orders"?"📋":t==="calendar"?"📅":t==="blast"?"📣":"⚙️"} {t==="blast"?"Blast":t.charAt(0).toUpperCase()+t.slice(1)}
+            {t==="orders"?"📋":t==="calendar"?"📅":t==="blast"?"📲":"⚙️"} {t==="blast"?"Texts":t.charAt(0).toUpperCase()+t.slice(1)}
           </button>
         ))}
       </div>
@@ -1228,11 +1229,6 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
               ))}
             </div>
           }
-          {completedCount>0&&(
-            <div style={{marginTop:12}}>
-              <button className="btn btn-danger" onClick={()=>setShowClearModal(true)}>🗑 Clear {completedCount} Completed Order{completedCount!==1?"s":""}</button>
-            </div>
-          )}
         </>
       )}
 
@@ -1365,26 +1361,42 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
 
           {completedCount>0&&(
             <div style={{marginTop:14}}>
-              <div className="clear-warn"><strong>Caution:</strong> Clearing order history permanently removes completed orders. Active orders are never affected.</div>
-              <button className="btn btn-danger" onClick={()=>setShowClearModal(true)}>🗑 Clear {completedCount} Completed Orders</button>
+              <div className="scard" style={{borderColor:"rgba(192,57,43,.25)"}}>
+                <div className="stitle" style={{color:"var(--rd)"}}>🗑 Order History</div>
+                <p style={{fontSize:10,color:"var(--gr)",marginBottom:10,lineHeight:1.5}}>
+                  You have <strong style={{color:"var(--wh)"}}>{completedCount} completed order{completedCount!==1?"s":""}</strong>. Clearing is permanent and cannot be undone.
+                </p>
+                {!showClearToggle?(
+                  <button className="btn btn-ghost" style={{fontSize:11,borderColor:"rgba(192,57,43,.3)",color:"#b08080"}}
+                    onClick={()=>setShowClearToggle(true)}>
+                    Show Clear Option
+                  </button>
+                ):(
+                  <>
+                    <div className="clear-warn" style={{marginBottom:10}}>
+                      ⚠️ <strong>This cannot be undone.</strong> Only orders marked Done will be removed. Active orders are safe.
+                    </div>
+                    <p style={{fontSize:10,color:"var(--gr)",marginBottom:6}}>Type <strong style={{color:"var(--rd)"}}>CLEAR</strong> to confirm:</p>
+                    <input className="finput" placeholder="Type CLEAR to confirm"
+                      value={clearConfirmText} onChange={e=>setClearConfirmText(e.target.value)}
+                      style={{marginBottom:8,borderColor:clearConfirmText==="CLEAR"?"var(--rd)":"var(--bdr)"}}/>
+                    <div style={{display:"flex",gap:8}}>
+                      <button className="btn btn-ghost" style={{flex:1}} onClick={()=>{setShowClearToggle(false);setClearConfirmText("");}}>Cancel</button>
+                      <button className="btn btn-danger" style={{flex:1,opacity:clearConfirmText==="CLEAR"?1:.35}}
+                        disabled={clearConfirmText!=="CLEAR"}
+                        onClick={()=>{clearCompleted();setShowClearToggle(false);setClearConfirmText("");}}>
+                        🗑 Clear {completedCount} Orders
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
           <div style={{height:20}}/>
         </>
       )}
 
-      {showClearModal&&(
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-title">⚠️ Clear Orders?</div>
-            <div className="modal-body">You are about to permanently delete <strong>{completedCount} completed order{completedCount!==1?"s":""}</strong>. This cannot be undone.<br/><br/>Only orders marked <strong>Done</strong> will be removed.</div>
-            <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={()=>setShowClearModal(false)}>Cancel</button>
-              <button className="btn btn-danger" onClick={()=>{clearCompleted();setShowClearModal(false);}}>Yes, Clear</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1405,103 +1417,139 @@ function PinField({value,onChange}){
   );
 }
 
-// ── BLAST TAB COMPONENT ────────────────────────────────────────────────────────
+// ── QUICK TEXT TAB ────────────────────────────────────────────────────────────
+const AUTO_MESSAGES = [
+  "Hey {name}! 🔥 First Class Wings is cooking this week. Wings & Fries starting at $12. Order now — made fresh, ATL style!",
+  "What's good {name}! 👑 First Class Wings got you covered this weekend. 6pc, 8pc, or 10pc combos w/ fries. Hit the link and order up!",
+  "Aye {name}! 🍗 Fresh wings dropping soon. Sweet Spicy, Buffalo, Lemon Pepper & more. First Class Wings — premium ATL flavor. Don't sleep!",
+  "Hey {name}! 💥 First Class Wings special this week — 10pc Half & Half for $16. Two flavors, one order. Tap in and order before we sell out!",
+  "{name}! 🔥 You already know the wings are hitting different this week. First Class Wings — Bold Flavor Every Time. Come get it!",
+  "Heads up {name} 👑 First Class Wings is open and fresh. Lemon Pepper hitting different rn. 6pc w/ fries only $12. Order while you can!",
+  "What's up {name}! 🍗 First Class Wings back at it. ATL style wings made fresh to order. Starting at $12. You know what to do!",
+];
+
 function BlastTab({orders,showToast}){
   const allCustomers = [...new Map(
     orders.filter(o=>o.phone)
       .map(o=>([o.phone,{phone:o.phone,name:`${o.firstName||""} ${o.lastName||""}`.trim()||o.phone}]))
   ).values()];
 
-  const [selected,setSelected]   = useState(()=>new Set(allCustomers.map(c=>c.phone)));
-  const [blastMsg,setBlastMsg]   = useState("Hey! 🔥 First Class Wings is cooking this week. Wings & Fries starting at $12. Hit me up to order — made fresh, ATL style!");
+  const todayIdx = new Date().getDate() % AUTO_MESSAGES.length;
+  const [autoIdx,setAutoIdx]       = useState(todayIdx);
+  const [useAuto,setUseAuto]       = useState(true);
+  const [useCustom,setUseCustom]   = useState(false);
+  const [customMsg,setCustomMsg]   = useState("");
 
-  useEffect(()=>{
-    const phones = [...new Map(
-      orders.filter(o=>o.phone)
-        .map(o=>([o.phone,{phone:o.phone,name:`${o.firstName||""} ${o.lastName||""}`.trim()||o.phone}]))
-    ).values()].map(c=>c.phone);
-    setSelected(prev=>{
-      const next=new Set(prev);
-      phones.forEach(p=>{ if(!next.has(p)) next.add(p); });
-      return next;
-    });
-  },[orders]);
+  function getFinalMsg(name){
+    const auto  = AUTO_MESSAGES[autoIdx].replace(/\{name\}/g, name||"");
+    const parts = [];
+    if(useAuto)   parts.push(auto);
+    if(useCustom && customMsg.trim()) parts.push(customMsg.trim());
+    return parts.join("\n\n") || "No message selected.";
+  }
 
-  function toggle(phone){ setSelected(prev=>{ const n=new Set(prev); n.has(phone)?n.delete(phone):n.add(phone); return n; }); }
-  function selectAll(){ setSelected(new Set(allCustomers.map(c=>c.phone))); }
-  function deselectAll(){ setSelected(new Set()); }
-
-  const selectedList = allCustomers.filter(c=>selected.has(c.phone));
-  const allSel       = selectedList.length===allCustomers.length;
-  const noneSel      = selectedList.length===0;
+  const previewMsg = getFinalMsg("there");
+  const ready = useAuto || (useCustom && customMsg.trim());
 
   if(allCustomers.length===0) return(
     <div className="blast-section">
-      <div className="blast-title">📣 Weekly Promo Blast</div>
-      <div className="empty"><div className="empty-i">📱</div><div className="empty-m">No customers yet — numbers appear after the first order</div></div>
+      <div className="blast-title">📲 Quick Text</div>
+      <div className="empty"><div className="empty-i">📱</div><div className="empty-m">No customers yet — numbers appear after first order</div></div>
     </div>
   );
 
   return(
     <div className="blast-section">
-      <div className="blast-title">📣 Weekly Promo Blast</div>
-      <div className="blast-sub">
-        Choose which customers get this blast. Tap a name to deselect. Hit the button to open your SMS app pre-loaded and ready to send.
-      </div>
+      <div className="blast-title">📲 Quick Text</div>
+      <div className="blast-sub">Build your message below, then tap 📱 next to any customer to open their SMS pre-filled and ready to send.</div>
 
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7}}>
-        <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"var(--blue)",textTransform:"uppercase"}}>
-          {selectedList.length} of {allCustomers.length} selected
+      {/* AUTO MESSAGE */}
+      <div className="scard" style={{marginBottom:9}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,color:"var(--or)",textTransform:"uppercase"}}>✨ Auto Message</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:10,color:"var(--gr)"}}>Use this</span>
+            <div onClick={()=>setUseAuto(p=>!p)} style={{
+              width:36,height:20,borderRadius:10,background:useAuto?"var(--or)":"#333",
+              cursor:"pointer",position:"relative",transition:"background .2s"
+            }}>
+              <div style={{position:"absolute",top:2,left:useAuto?18:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+            </div>
+          </div>
         </div>
-        <div style={{display:"flex",gap:5}}>
-          <button onClick={selectAll} disabled={allSel}
-            style={{background:"none",border:"1px solid rgba(41,128,185,.3)",color:"#78b8d8",fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:.5,padding:"3px 8px",borderRadius:3,cursor:"pointer",opacity:allSel?.35:1}}>
-            All
-          </button>
-          <button onClick={deselectAll} disabled={noneSel}
-            style={{background:"none",border:"1px solid var(--bdr)",color:"var(--gr)",fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:.5,padding:"3px 8px",borderRadius:3,cursor:"pointer",opacity:noneSel?.35:1}}>
-            None
-          </button>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+          <button onClick={()=>setAutoIdx(i=>(i-1+AUTO_MESSAGES.length)%AUTO_MESSAGES.length)}
+            style={{background:"none",border:"1px solid var(--bdr)",color:"var(--gr)",width:28,height:28,borderRadius:4,cursor:"pointer",fontSize:14,flexShrink:0}}>◀</button>
+          <div style={{flex:1,fontSize:10,color:"var(--gr)",textAlign:"center",fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>
+            Message {autoIdx+1} of {AUTO_MESSAGES.length}
+          </div>
+          <button onClick={()=>setAutoIdx(i=>(i+1)%AUTO_MESSAGES.length)}
+            style={{background:"none",border:"1px solid var(--bdr)",color:"var(--gr)",width:28,height:28,borderRadius:4,cursor:"pointer",fontSize:14,flexShrink:0}}>▶</button>
+        </div>
+        <div style={{background:"#0c0c0c",border:"1px solid #222",borderRadius:6,padding:"9px 10px",fontSize:11,color:useAuto?"var(--wh)":"#333",lineHeight:1.6,fontStyle:"italic",transition:"color .2s"}}>
+          "{AUTO_MESSAGES[autoIdx].replace(/\{name\}/g,"[Name]")}"
         </div>
       </div>
 
-      <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:11,maxHeight:160,overflowY:"auto"}}>
-        {allCustomers.map(c=>{
-          const isSel=selected.has(c.phone);
-          return(
-            <button key={c.phone} onClick={()=>toggle(c.phone)}
-              style={{
-                background:isSel?"rgba(41,128,185,.14)":"rgba(255,255,255,.02)",
-                border:`1px solid ${isSel?"rgba(41,128,185,.4)":"#222"}`,
-                color:isSel?"#78b8d8":"#3a3a3a",
-                fontFamily:"'Oswald',sans-serif",fontSize:11,letterSpacing:.5,
-                padding:"8px 11px",borderRadius:6,cursor:"pointer",
-                transition:"all .15s",textAlign:"left",
-                display:"flex",alignItems:"center",gap:8,
-              }}>
-              <span style={{fontSize:12,width:16,textAlign:"center",flexShrink:0}}>{isSel?"✓":"○"}</span>
-              <span style={{flex:1,fontWeight:600}}>{c.name||c.phone}</span>
-              <span style={{fontSize:9,opacity:.5,fontFamily:"'JetBrains Mono',monospace"}}>{c.phone}</span>
-            </button>
-          );
-        })}
+      {/* CUSTOM MESSAGE */}
+      <div className="scard" style={{marginBottom:9}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,color:"var(--or)",textTransform:"uppercase"}}>✏️ Custom Message</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:10,color:"var(--gr)"}}>Use this</span>
+            <div onClick={()=>setUseCustom(p=>!p)} style={{
+              width:36,height:20,borderRadius:10,background:useCustom?"var(--or)":"#333",
+              cursor:"pointer",position:"relative",transition:"background .2s"
+            }}>
+              <div style={{position:"absolute",top:2,left:useCustom?18:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+            </div>
+          </div>
+        </div>
+        <textarea className="finput" rows={3} placeholder="Write your own message here..."
+          value={customMsg} onChange={e=>setCustomMsg(e.target.value)}
+          style={{fontSize:12,opacity:useCustom?1:.4,transition:"opacity .2s"}}
+          disabled={!useCustom}/>
       </div>
 
-      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"var(--blue)",textTransform:"uppercase",marginBottom:5}}>Your Message</div>
-      <textarea className="finput" style={{marginBottom:7,fontSize:12}} value={blastMsg} onChange={e=>setBlastMsg(e.target.value)} rows={3}/>
-      <div className="blast-preview" style={{marginBottom:9}}>"{blastMsg}"</div>
-
-      {selectedList.length>0?(
-        <a className="btn btn-blue" style={{textDecoration:"none",display:"flex"}}
-          href={`sms:${selectedList.map(c=>c.phone).join(",")}&body=${encodeURIComponent(blastMsg)}`}>
-          📣 Text {selectedList.length} Customer{selectedList.length!==1?"s":""}
-        </a>
-      ):(
-        <button className="btn btn-blue" disabled style={{opacity:.3,cursor:"not-allowed"}}>
-          Select at least one customer
-        </button>
+      {/* PREVIEW */}
+      {ready&&(
+        <div style={{background:"rgba(245,166,35,.04)",border:"1px solid rgba(245,166,35,.2)",borderRadius:7,padding:"9px 11px",marginBottom:12}}>
+          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"var(--or)",textTransform:"uppercase",marginBottom:5}}>Preview</div>
+          <div style={{fontSize:11,color:"var(--gr)",lineHeight:1.6,whiteSpace:"pre-line"}}>{previewMsg}</div>
+        </div>
       )}
-      <p className="note" style={{marginTop:7}}>Opens your phone's Messages app — review and tap Send. Free, uses your regular texting.</p>
+
+      {/* CUSTOMER LIST WITH INDIVIDUAL TEXT BUTTONS */}
+      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1.5,color:"var(--or)",textTransform:"uppercase",marginBottom:8}}>
+        Customers — {allCustomers.length} total
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {allCustomers.map(c=>(
+          <div key={c.phone} style={{
+            background:"var(--card)",border:"1px solid var(--bdr)",borderRadius:8,
+            padding:"10px 12px",display:"flex",alignItems:"center",gap:10
+          }}>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,fontWeight:600,color:"var(--wh)",letterSpacing:.5}}>{c.name||c.phone}</div>
+              <div style={{fontSize:10,color:"var(--gr)",marginTop:1,fontFamily:"'JetBrains Mono',monospace"}}>{c.phone}</div>
+            </div>
+            {ready?(
+              <a href={`sms:${c.phone}&body=${encodeURIComponent(getFinalMsg(c.name?.split(" ")[0]||""))}`}
+                style={{
+                  background:"rgba(41,128,185,.15)",border:"1px solid rgba(41,128,185,.35)",
+                  color:"#78b8d8",fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:.5,
+                  padding:"6px 10px",borderRadius:5,textDecoration:"none",display:"flex",
+                  alignItems:"center",gap:4,whiteSpace:"nowrap",flexShrink:0
+                }}>
+                📱 Text
+              </a>
+            ):(
+              <div style={{fontSize:10,color:"#333",fontFamily:"'Oswald',sans-serif",letterSpacing:.5}}>Pick message ↑</div>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="note" style={{marginTop:10}}>Opens your Messages app pre-filled. Review and tap Send. Free — uses your regular texting.</p>
     </div>
   );
 }
