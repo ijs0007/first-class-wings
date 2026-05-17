@@ -114,7 +114,7 @@ body{background:var(--blk);color:var(--wh);font-family:'Inter',sans-serif;min-he
 
 /* BACK BAR */
 .back-bar{display:flex;align-items:center;gap:8px;padding:8px 13px;background:#0d0d0d;border-bottom:1px solid var(--bdr);position:sticky;top:56px;z-index:200}
-.back-btn{background:none;border:1px solid var(--bdr);color:var(--gr);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:4px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:4px}
+.back-btn{background:none;border:1px solid var(--bdr);color:var(--gr);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:4px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:4px;-webkit-appearance:none;appearance:none}
 .back-btn:hover{border-color:var(--or);color:var(--or)}
 .fwd-btn{background:none;border:1px solid var(--bdr);color:var(--gr);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:4px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:4px;margin-left:auto}
 .fwd-btn:hover{border-color:var(--or);color:var(--or)}
@@ -704,6 +704,20 @@ export default function App(){
 // ── MENU VIEW ─────────────────────────────────────────────────────────────────
 // ── CUSTOMER VIEW ─────────────────────────────────────────────────────────────
 function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,setCart,buildStep,setBuildStep,building,setBuilding,screen,navigate,goBack,canGoBack,screenHistory,setScreenHistory,setCustScreen}){
+  const cartTotal = cart.reduce((s,i)=>s+i.subtotal,0);
+
+  // Persistent cart tray — always visible on all screens when cart has items
+  const CartTray = ()=> cart.length>0 ? (
+    <div className="tray">
+      <div className="tray-badge">{cart.length}</div>
+      <div className="tray-info">
+        <div className="tray-line">{cart.length} item{cart.length!==1?"s":""} in order</div>
+        <div className="tray-total">${cartTotal}</div>
+      </div>
+      {screen!=="checkout"&&<button className="tray-btn" onClick={()=>navigate("checkout")}>View Cart →</button>}
+      {screen==="checkout"&&<button className="tray-btn" onClick={()=>navigate("build")}>+ Add More</button>}
+    </div>
+  ) : null;
   const [form,setForm]         = useLocalStorage("fcw_form",{firstName:"",lastName:"",phone:"",notes:""});
   const [errors,setErrors]     = useState({});
   const [orderTime,setOrderTime]= useLocalStorage("fcw_ordertime",{day:null,time:null,isSpecial:false});
@@ -715,8 +729,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
   const step=buildStep; const setStep=setBuildStep;
 
   function fresh(){ return {combo:null,flavor1:null,flavor2:null,hh:false,qty:1}; }
-
-  const cartTotal = cart.reduce((s,i)=>s+i.subtotal,0);
 
   // Days available: open dates this week + any future open date (for special)
   const now=new Date();
@@ -750,12 +762,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     setForm({firstName:"",lastName:"",phone:"",notes:""});
     setOrderTime({day:null,time:null,isSpecial:false});
     showToast("Order placed! 🍗");
-    // Notify owner via SMS
-    const ownerPhone = settings.ownerPhone||"";
-    if(ownerPhone){
-      const msg = settings.customMsgs?.newOrder||`🔥 New Order! ${orderNum} from ${form.firstName} ${form.lastName} — $${cartTotal}. Awaiting payment. Check your dashboard!`;
-      setTimeout(()=>{ window.location.href=`sms:${ownerPhone}&body=${encodeURIComponent(msg)}`; },1200);
-    }
   }
 
   function copyNote(note){ navigator.clipboard.writeText(note).then(()=>{setCopied(true);showToast("Copied! 📋");setTimeout(()=>setCopied(false),3500);}).catch(()=>showToast("Long-press the note to copy")); }
@@ -770,7 +776,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     return(
       <div>
         <div className="back-bar">
-          <button className="back-btn" onClick={()=>navigate("build")}>◀ New Order</button>
           <span className="bar-title">✅ Order Submitted!</span>
         </div>
         <div className="receipt">
@@ -823,6 +828,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           <button className="btn btn-or" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>Place Another Order</button>
           <div style={{height:20}}/>
         </div>
+        <CartTray/>
       </div>
     );
   }
@@ -883,13 +889,15 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           <TimeDayPicker orderTime={orderTime} setOrderTime={setOrderTime} thisWeekOpenDays={thisWeekOpenDays} settings={settings}/>
 
           <button className="btn btn-or" onClick={submitOrder}>✅ Submit Order — ${cartTotal}</button>
-          <div style={{height:20}}/>
+          <div style={{height:80}}/>
         </div>
+        <CartTray/>
       </div>
     );
   }
 
   // ── BUILD ──
+  const buildTotal = cartTotal + (b.combo?b.combo.price*b.qty:0);
   return(
     <div>
       <div className="hero">
@@ -1065,17 +1073,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
         </div>
       )}
 
-      {cart.length>0&&(
-        <div className="tray">
-          <div className="tray-badge">{cart.length}</div>
-          <div className="tray-info">
-            <div className="tray-line">{cart.length} item{cart.length!==1?"s":""} in order</div>
-            <div className="tray-total">${cartTotal}</div>
-          </div>
-          {screen!=="checkout"&&<button className="tray-btn" onClick={()=>navigate("checkout")}>View Cart →</button>}
-          {screen==="checkout"&&<button className="tray-btn" onClick={()=>navigate("build")}>+ Add More</button>}
-        </div>
-      )}
+      <CartTray/>
     </div>
   );
 }
