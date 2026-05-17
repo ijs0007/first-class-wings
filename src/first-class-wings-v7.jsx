@@ -651,7 +651,7 @@ export default function App(){
           <button className={`ntab ${view==="customer"?"active":""}`} onClick={()=>setView("customer")}>Order</button>
           <button className="ntab" onClick={()=>setMenuOpen(true)}>Menu</button>
           <button className={`ntab ${view==="owner"?"active":""}`} onClick={()=>setView("owner")}>
-            Owner{newCt>0?` (${newCt})`:""}
+            Owner{ownerUnlocked&&newCt>0?` (${newCt})`:""}
           </button>
         </div>
       </nav>
