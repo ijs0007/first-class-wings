@@ -405,7 +405,7 @@ select.finput{appearance:none}
 .cb-title{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.5px;font-weight:600;text-transform:uppercase;color:var(--wh)}
 .confirm-box.checked .cb-title{color:var(--ok)}
 .cb-sub{font-size:9px;color:var(--gr);margin-top:2px;line-height:1.4}
-.oacts{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.oacts{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;justify-content:center}
 .abtn{padding:5px 9px;border-radius:4px;border:none;font-family:'Oswald',sans-serif;font-size:9px;letter-spacing:1px;cursor:pointer;text-transform:uppercase;transition:all .2s;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
 .a-ok{background:var(--ok);color:#fff}
 .a-done{background:#1e1e1e;color:var(--gr)}
