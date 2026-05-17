@@ -397,10 +397,10 @@ select.finput{appearance:none}
 .odet{font-size:10px;color:var(--gr);margin-bottom:2px}
 .odet strong{color:var(--wh)}
 .oprice{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--or);margin:4px 0 2px}
-.confirm-box{background:rgba(255,255,255,.03);border:1.5px solid #2a2a2a;border-radius:7px;padding:9px;margin:6px 0;display:flex;align-items:flex-start;gap:8px;cursor:pointer;transition:all .2s;text-decoration:none}
-.confirm-box:hover{border-color:var(--or)}
+.confirm-box{background:rgba(41,128,185,.07);border:1.5px solid rgba(41,128,185,.3);border-radius:7px;padding:9px;margin:6px 0;display:flex;align-items:flex-start;gap:8px;cursor:pointer;transition:all .2s;text-decoration:none}
+.confirm-box:hover{border-color:rgba(41,128,185,.55);background:rgba(41,128,185,.12)}
 .confirm-box.checked{background:rgba(39,174,96,.06);border-color:rgba(39,174,96,.4)}
-.cb-check{width:18px;height:18px;border-radius:3px;border:2px solid #3a3a3a;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .2s;margin-top:1px}
+.cb-check{width:18px;height:18px;border-radius:3px;border:2px solid rgba(41,128,185,.45);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .2s;margin-top:1px}
 .confirm-box.checked .cb-check{background:var(--ok);border-color:var(--ok);color:#fff}
 .cb-title{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.5px;font-weight:600;text-transform:uppercase;color:var(--wh)}
 .confirm-box.checked .cb-title{color:var(--ok)}
