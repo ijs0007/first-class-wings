@@ -1166,6 +1166,8 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
   const [tab,setTab]         = useState("orders");
   const [calView,setCalView] = useState("week");
   const [calMonth,setCalMonth]= useState(()=>{ const n=new Date(); return{y:n.getFullYear(),m:n.getMonth()}; });
+  const rainchecks = orders.filter(o=>o.status==="raincheck").length;
+  if(tab==="raincheck"&&rainchecks===0) setTab("orders");
   const [showClearToggle,setShowClearToggle] = useState(false);
   const [clearSelected,setClearSelected]     = useState(new Set());
   const [unconfirmModal,setUnconfirmModal]   = useState(null);
@@ -1214,10 +1216,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
         <div className="stat"><div className="stat-n">${todayTot}</div><div className="stat-l">Earned</div></div>
       </div>
       <div className="dtabs">
-        {["orders","raincheck","calendar","blast","analytics","settings"].map(t=>(
+        {["orders",...(orders.filter(o=>o.status==="raincheck").length>0?["raincheck"]:[]),"calendar","blast","analytics","settings"].map(t=>(
           <button key={t} className={`dtab ${tab===t?"active":""}`} onClick={()=>setTab(t)}>
             {t==="orders"?"📋":t==="raincheck"?"🌧️":t==="calendar"?"📅":t==="blast"?"📲":t==="analytics"?"📊":"⚙️"} {t==="blast"?"Texts":t==="raincheck"?"Rain":t==="analytics"?"Stats":t.charAt(0).toUpperCase()+t.slice(1)}
-            {t==="raincheck"&&orders.filter(o=>o.status==="raincheck").length>0&&<span style={{marginLeft:3,background:"rgba(41,128,185,.3)",color:"#78b8d8",borderRadius:10,padding:"0 4px",fontSize:9}}>{orders.filter(o=>o.status==="raincheck").length}</span>}
+            {t==="raincheck"&&<span style={{marginLeft:3,background:"rgba(41,128,185,.3)",color:"#78b8d8",borderRadius:10,padding:"0 4px",fontSize:9}}>{orders.filter(o=>o.status==="raincheck").length}</span>}
           </button>
         ))}
       </div>
