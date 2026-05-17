@@ -769,7 +769,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           {/* 1 — PAYMENT WARNING */}
           <div className="warn-banner" style={{marginBottom:12}}>
             <span className="ban-ico">⚠️</span>
-            <div className="ban-txt"><strong>Send payment now to confirm your order.</strong> Your order won't be prepared until payment is received and verified.</div>
+            <div className="ban-txt"><strong>Send payment to complete your order.</strong> Your order won't be prepared until payment is received and the owner verifies it.</div>
           </div>
 
           {/* 2 — PAYMENT NOTE */}
@@ -1195,9 +1195,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
         <div className="stat"><div className="stat-n">${todayTot}</div><div className="stat-l">Earned</div></div>
       </div>
       <div className="dtabs">
-        {["orders","calendar","blast","settings"].map(t=>(
+        {["orders","raincheck","calendar","blast","settings"].map(t=>(
           <button key={t} className={`dtab ${tab===t?"active":""}`} onClick={()=>setTab(t)}>
-            {t==="orders"?"📋":t==="calendar"?"📅":t==="blast"?"📲":"⚙️"} {t==="blast"?"Texts":t.charAt(0).toUpperCase()+t.slice(1)}
+            {t==="orders"?"📋":t==="raincheck"?"🌧️":t==="calendar"?"📅":t==="blast"?"📲":"⚙️"} {t==="blast"?"Texts":t==="raincheck"?"Rain Check":t.charAt(0).toUpperCase()+t.slice(1)}
+            {t==="raincheck"&&orders.filter(o=>o.status==="raincheck").length>0&&<span style={{marginLeft:4,background:"rgba(41,128,185,.3)",color:"#78b8d8",borderRadius:10,padding:"0 5px",fontSize:9}}>{orders.filter(o=>o.status==="raincheck").length}</span>}
           </button>
         ))}
       </div>
@@ -1232,28 +1233,35 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                   {o.notes&&<div className="odet">📝 <em>{o.notes}</em></div>}
                   <div className="oprice">${o.total}</div>
 
-                  {/* CONTACT BUTTONS — always visible */}
-                  <div style={{display:"flex",gap:6,marginBottom:7}}>
-                    <a className="abtn" href={`tel:${o.phone}`}
-                      style={{flex:1,textAlign:"center",background:"rgba(39,174,96,.1)",border:"1px solid rgba(39,174,96,.3)",color:"#70c890",textDecoration:"none"}}>
-                      📞 Call
+                  {/* CONFIRM BOX — TOP */}
+                  {o.status==="new"&&(
+                    <a className="confirm-box" style={{textDecoration:"none",display:"flex"}}
+                      href={`sms:${o.phone}&body=Hey ${o.firstName}! ✅ Your First Class Wings order ${o.orderNum} is confirmed! We'll text you when it's ready. 🍗👑`}
+                      onClick={()=>setTimeout(()=>confirmOrder(o.id),500)}>
+                      <div className="cb-check"/>
+                      <div><div className="cb-title">Confirm Order &amp; Notify Customer</div><div className="cb-sub">Tap to confirm payment for {o.orderNum} — opens pre-filled text to {o.phone}.</div></div>
                     </a>
+                  )}
+
+                  {/* CONTACT — Text first, Call second */}
+                  <div style={{display:"flex",gap:6,marginBottom:7}}>
                     <a className="abtn" href={`sms:${o.phone}&body=Hey ${o.firstName}! This is First Class Wings reaching out about your order ${o.orderNum}.`}
                       style={{flex:1,textAlign:"center",background:"rgba(41,128,185,.1)",border:"1px solid rgba(41,128,185,.3)",color:"#78b8d8",textDecoration:"none"}}>
                       💬 Text
                     </a>
+                    <a className="abtn" href={`tel:${o.phone}`}
+                      style={{flex:1,textAlign:"center",background:"rgba(39,174,96,.1)",border:"1px solid rgba(39,174,96,.3)",color:"#70c890",textDecoration:"none"}}>
+                      📞 Call
+                    </a>
                   </div>
 
-                  {o.status==="new"&&(
-                    <div className="confirm-box" onClick={()=>confirmOrder(o.id)}>
-                      <div className="cb-check"/>
-                      <div><div className="cb-title">Confirm Order &amp; Notify Customer</div><div className="cb-sub">Check once payment verified for {o.orderNum}. Sends confirmation text to {o.phone}.</div></div>
-                    </div>
-                  )}
                   <div className="oacts">
                     {o.status==="confirmed"&&<>
-                      <button className="abtn" style={{background:"rgba(192,57,43,.1)",border:"1px solid rgba(192,57,43,.3)",color:"#d09080"}}
-                        onClick={()=>setUnconfirmModal(o.id)}>↩ Unconfirm</button>
+                      <a className="abtn" style={{background:"rgba(192,57,43,.1)",border:"1px solid rgba(192,57,43,.3)",color:"#d09080",textDecoration:"none"}}
+                        href={`sms:${o.phone}&body=Hey ${o.firstName}! Just a quick heads up — there's a small update on your order ${o.orderNum}. The owner will reach out to you shortly. 🍗`}
+                        onClick={()=>setTimeout(()=>setUnconfirmModal(o.id),500)}>
+                        ↩ Unconfirm
+                      </a>
                       <button className="abtn a-ok" onClick={()=>upStatus(o.id,"ready")}>🍗 Mark Ready</button>
                     </>}
                     {o.status==="ready"&&<>
@@ -1319,7 +1327,39 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
         </>
       )}
 
-      {/* CALENDAR */}
+      {/* RAIN CHECK TAB */}
+      {tab==="raincheck"&&(
+        <>
+          {orders.filter(o=>o.status==="raincheck").length===0
+            ?<div className="empty"><div className="empty-i">🌧️</div><div className="empty-m">No rain checks — all clear!</div></div>
+            :<div className="orders-list">
+              {orders.filter(o=>o.status==="raincheck").map(o=>(
+                <div key={o.id} className="ocard" style={{borderColor:"rgba(41,128,185,.3)",background:"rgba(41,128,185,.04)"}}>
+                  <div className="onum-chip" style={{background:"rgba(41,128,185,.2)",color:"#78b8d8"}}>{o.orderNum}</div>
+                  <div className="otop">
+                    <div className="oname">{o.firstName} {o.lastName}</div>
+                    <span className="obadge b-rain">🌧️ Rain Check</span>
+                  </div>
+                  {o.cartItems?.map((item,i)=>(<div key={i} className="odet"><strong>{item.combo.label}</strong> — {item.flavorLabel} ×{item.qty}</div>))}
+                  <div className="odet">📱 {o.phone} · 🕐 {o.time}</div>
+                  {o.notes&&<div className="odet">📝 <em>{o.notes}</em></div>}
+                  <div className="oprice">${o.total}</div>
+                  <div style={{display:"flex",gap:6,marginTop:8}}>
+                    <a className="abtn" href={`sms:${o.phone}&body=Hey ${o.firstName}! Following up on your rain-checked order ${o.orderNum}. Ready to get your wings sorted? 🍗`}
+                      style={{flex:1,textAlign:"center",background:"rgba(41,128,185,.1)",border:"1px solid rgba(41,128,185,.3)",color:"#78b8d8",textDecoration:"none"}}>
+                      💬 Follow Up
+                    </a>
+                    <button className="abtn a-ok" style={{flex:1}}
+                      onClick={()=>upStatus(o.id,"confirmed")}>
+                      ✅ Restore Order
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          }
+        </>
+      )}
       {tab==="calendar"&&(
         <>
           <div className="scard">
