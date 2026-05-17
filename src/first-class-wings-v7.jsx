@@ -1034,18 +1034,21 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             <div className="ol-title">Your Order</div>
             {cart.length>0&&<div className="ol-count">{cart.length} item{cart.length!==1?"s":""}</div>}
           </div>
-          <div style={{background:"rgba(245,166,35,.04)",border:"1.5px dashed rgba(245,166,35,.3)",borderRadius:7,padding:"9px 11px",marginBottom:8}}>
-            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"rgba(245,166,35,.6)",textTransform:"uppercase",marginBottom:4}}>Current item</div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <div style={{flex:1}}><div className="oi-name">{b.combo?.label}</div><div className="oi-detail">{b.hh&&b.flavor2?`${b.flavor1?.name} / ${b.flavor2?.name}`:b.flavor1?.name} · Qty {b.qty}</div></div>
-              <div className="oi-price">${itemSub}</div>
-              <button className="oi-remove" title="Remove" onClick={()=>{
-                setB(fresh());
-                if(cart.length>0){ navigate("checkout"); } // still has items — go to checkout
-                else { setStep(1); } // no items — start over
-              }}>✕</button>
+
+          {/* Current item — only show if building something */}
+          {b.combo&&(
+            <div style={{background:"rgba(245,166,35,.04)",border:"1.5px dashed rgba(245,166,35,.3)",borderRadius:7,padding:"9px 11px",marginBottom:8}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"rgba(245,166,35,.6)",textTransform:"uppercase",marginBottom:4}}>Current item</div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{flex:1}}><div className="oi-name">{b.combo?.label}</div><div className="oi-detail">{b.hh&&b.flavor2?`${b.flavor1?.name} / ${b.flavor2?.name}`:b.flavor1?.name} · Qty {b.qty}</div></div>
+                <div className="oi-price">${itemSub}</div>
+                <button className="oi-remove" title="Remove" onClick={()=>{
+                  setB(fresh());
+                  if(cart.length===0){ setStep(1); }
+                }}>✕</button>
+              </div>
             </div>
-          </div>
+          )}
           {cart.length>0&&(
             <>
               <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,color:"var(--gr)",textTransform:"uppercase",marginBottom:5}}>Also in your order</div>
@@ -1062,12 +1065,13 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           )}
           <div className="total-bar" style={{marginTop:cart.length>0?0:7}}>
             <span className="total-lbl">Running Total</span>
-            <span className="total-val">${cartTotal+itemSub}</span>
+            <span className="total-val">${b.combo ? cartTotal+itemSub : cartTotal}</span>
           </div>
-          <button className="add-another-btn" onClick={addAndContinue}>➕ Add Another Item</button>
-          <button className="btn btn-or" onClick={()=>{const item=buildItem();setCart(p=>[...p,item]);setB(fresh());navigate("checkout");}}>
-            ✅ I'm Done — Go to Checkout
-          </button>
+          {b.combo&&<button className="add-another-btn" onClick={addAndContinue}>➕ Add Another Item</button>}
+          {b.combo
+            ? <button className="btn btn-or" onClick={()=>{const item=buildItem();setCart(p=>[...p,item]);setB(fresh());navigate("checkout");}}>✅ I'm Done — Go to Checkout</button>
+            : cart.length>0&&<button className="btn btn-or" onClick={()=>navigate("checkout")}>✅ Go to Checkout</button>
+          }
         </div>
       )}
 
