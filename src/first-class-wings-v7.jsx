@@ -906,7 +906,19 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
       <div className="avail-strip">
         <span className="avail-label">Open:</span>
         <div className="avail-days">
-          {DAYS.map(d=><span key={d} className={`aday ${openDayNames.includes(d)?"open":"closed"}`}>{DAY_LABELS[d]}</span>)}
+          {DAYS.map(d=>{
+            const now2=new Date(); const off=(DAYS.indexOf(d)+1)-now2.getDay();
+            const dd=new Date(now2); dd.setDate(now2.getDate()+off);
+            const mon=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dd.getMonth()];
+            const day=String(dd.getDate()).padStart(2,"0");
+            const isOpen=openDayNames.includes(d);
+            return(
+              <span key={d} className={`aday ${isOpen?"open":"closed"}`} style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"3px 7px"}}>
+                <span>{DAY_LABELS[d]}</span>
+                <span style={{fontSize:8,opacity:.7,letterSpacing:.3}}>{mon} {day}</span>
+              </span>
+            );
+          })}
         </div>
       </div>
 
