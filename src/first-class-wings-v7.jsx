@@ -395,12 +395,12 @@ select.finput{appearance:none}
 .odet{font-size:10px;color:var(--gr);margin-bottom:2px}
 .odet strong{color:var(--wh)}
 .oprice{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--or);margin:4px 0 2px}
-.confirm-box{background:rgba(41,128,185,.06);border:1.5px solid rgba(41,128,185,.27);border-radius:7px;padding:9px;margin:6px 0;display:flex;align-items:flex-start;gap:8px;cursor:pointer;transition:all .2s}
-.confirm-box:hover{border-color:var(--blue)}
+.confirm-box{background:rgba(255,255,255,.03);border:1.5px solid #2a2a2a;border-radius:7px;padding:9px;margin:6px 0;display:flex;align-items:flex-start;gap:8px;cursor:pointer;transition:all .2s;text-decoration:none}
+.confirm-box:hover{border-color:var(--or)}
 .confirm-box.checked{background:rgba(39,174,96,.06);border-color:rgba(39,174,96,.4)}
-.cb-check{width:18px;height:18px;border-radius:3px;border:2px solid rgba(41,128,185,.5);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .2s;margin-top:1px}
+.cb-check{width:18px;height:18px;border-radius:3px;border:2px solid #3a3a3a;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .2s;margin-top:1px}
 .confirm-box.checked .cb-check{background:var(--ok);border-color:var(--ok);color:#fff}
-.cb-title{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.5px;font-weight:600;text-transform:uppercase}
+.cb-title{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.5px;font-weight:600;text-transform:uppercase;color:var(--wh)}
 .confirm-box.checked .cb-title{color:var(--ok)}
 .cb-sub{font-size:9px;color:var(--gr);margin-top:2px;line-height:1.4}
 .oacts{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
@@ -1262,10 +1262,17 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                         onClick={()=>setTimeout(()=>setUnconfirmModal(o.id),500)}>
                         ↩ Unconfirm
                       </a>
-                      <button className="abtn a-ok" onClick={()=>upStatus(o.id,"ready")}>🍗 Mark Ready</button>
+                      <a className="abtn a-ok" style={{textDecoration:"none",textAlign:"center"}}
+                        href={`sms:${o.phone}&body=Hey ${o.firstName}! Your First Class Wings order ${o.orderNum} is being prepared now 🍗🔥 We'll let you know when it's ready for pickup!`}
+                        onClick={()=>setTimeout(()=>upStatus(o.id,"ready"),500)}>
+                        🍗 Mark Ready
+                      </a>
                     </>}
                     {o.status==="ready"&&<>
-                      <a className="abtn a-sms" href={`sms:${o.phone}&body=Hey ${o.firstName}! Your First Class Wings are READY 🔥🍗 Order ${o.orderNum} — Pickup at: ${settings.pickupAddress}`}>📱 Text Ready</a>
+                      <a className="abtn a-sms" style={{flex:1,textAlign:"center"}}
+                        href={`sms:${o.phone}&body=Hey ${o.firstName}! Your First Class Wings are READY 🔥🍗 Order ${o.orderNum} — Pickup at: ${settings.pickupAddress}`}>
+                        📱 Text Customer — Ready!
+                      </a>
                       <button className="abtn a-done" onClick={()=>upStatus(o.id,"done")}>✅ Done</button>
                     </>}
                     {["new","confirmed","ready"].includes(o.status)&&(
@@ -1349,10 +1356,11 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                       style={{flex:1,textAlign:"center",background:"rgba(41,128,185,.1)",border:"1px solid rgba(41,128,185,.3)",color:"#78b8d8",textDecoration:"none"}}>
                       💬 Follow Up
                     </a>
-                    <button className="abtn a-ok" style={{flex:1}}
-                      onClick={()=>upStatus(o.id,"confirmed")}>
+                    <a className="abtn a-ok" style={{flex:1,textAlign:"center",textDecoration:"none"}}
+                      href={`sms:${o.phone}&body=Hey ${o.firstName}! Great news — your First Class Wings order ${o.orderNum} is back on! We're on it. 🍗👑`}
+                      onClick={()=>setTimeout(()=>upStatus(o.id,"confirmed"),500)}>
                       ✅ Restore Order
-                    </button>
+                    </a>
                   </div>
                 </div>
               ))}
