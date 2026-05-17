@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MENU IMAGE — replace this URL after hosting your flyer image
@@ -24,7 +24,6 @@ const COMBOS = [
 const DAYS       = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
 const DAY_LABELS = { monday:"Mon",tuesday:"Tue",wednesday:"Wed",thursday:"Thu",friday:"Fri",saturday:"Sat",sunday:"Sun" };
 const DAY_FULL   = { monday:"Monday",tuesday:"Tuesday",wednesday:"Wednesday",thursday:"Thursday",friday:"Friday",saturday:"Saturday",sunday:"Sunday" };
-const DAY_SHORT  = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 const MONTH_NAMES= ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DEFAULT_HOURS = { open:"11:00", close:"20:00", slotMins:30 };
 
@@ -33,7 +32,6 @@ function genOrderNum(){ const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s="FCW-"
 function fmtTime(d){ return d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}); }
 function fmtDate(d){ return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}); }
 function dateKey(y,m,d){ return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
-function todayKey(){ const n=new Date(); return dateKey(n.getFullYear(),n.getMonth(),n.getDate()); }
 function buildPayNote(o){ return `Order ${o.orderNum}\n${o.lastName}, ${o.firstName} | ${o.phone}\nPlaced: ${o.time}\nTotal: $${o.total}`; }
 function formatPhone(raw){ const d=raw.replace(/\D/g,"").slice(0,10); if(d.length<=3) return d; if(d.length<=6) return `(${d.slice(0,3)}) ${d.slice(3)}`; return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; }
 function cashAppLink(tag,amt){ return `https://cash.app/${tag.replace("$","")}/${amt}`; }
@@ -543,7 +541,7 @@ export default function App(){
                   display:"flex",alignItems:"center",justifyContent:"center",
                   cursor:"pointer",fontSize:15,fontWeight:"bold",backdropFilter:"blur(4px)"
                 }}>✕</button>
-                <img src="https://res.cloudinary.com/doqb37ujx/image/upload/IMG_9040_wksvez.png"
+                <img src={MENU_IMAGE_URL}
                   alt="First Class Wings Menu"
                   style={{touchAction:"pinch-zoom",width:"100%",maxWidth:460,display:"block",margin:"0 auto",borderRadius:10,border:"1px solid rgba(245,166,35,.12)",boxShadow:"0 20px 60px rgba(0,0,0,.5)"}}/>
               </div>
@@ -951,7 +949,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
 
 // ── TIME/DAY PICKER COMPONENT ──────────────────────────────────────────────────
 function TimeDayPicker({orderTime,setOrderTime,thisWeekOpenDays,settings}){
-  const allDays = [...thisWeekOpenDays];
   const hasSelection = orderTime.day || orderTime.time;
 
   // Get slots for the selected day using per-DATE hours, fall back to defaults
@@ -1286,12 +1283,16 @@ function BlastTab({orders,showToast}){
   const [blastMsg,setBlastMsg]   = useState("Hey! 🔥 First Class Wings is cooking this week. Wings & Fries starting at $12. Hit me up to order — made fresh, ATL style!");
 
   useEffect(()=>{
+    const phones = [...new Map(
+      orders.filter(o=>o.phone)
+        .map(o=>([o.phone,{phone:o.phone,name:`${o.firstName||""} ${o.lastName||""}`.trim()||o.phone}]))
+    ).values()].map(c=>c.phone);
     setSelected(prev=>{
       const next=new Set(prev);
-      allCustomers.forEach(c=>{ if(!next.has(c.phone)) next.add(c.phone); });
+      phones.forEach(p=>{ if(!next.has(p)) next.add(p); });
       return next;
     });
-  },[orders.length]);
+  },[orders]);
 
   function toggle(phone){ setSelected(prev=>{ const n=new Set(prev); n.has(phone)?n.delete(phone):n.add(phone); return n; }); }
   function selectAll(){ setSelected(new Set(allCustomers.map(c=>c.phone))); }
