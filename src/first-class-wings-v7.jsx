@@ -1142,7 +1142,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
   const [calView,setCalView] = useState("week");
   const [calMonth,setCalMonth]= useState(()=>{ const n=new Date(); return{y:n.getFullYear(),m:n.getMonth()}; });
   const [showClearToggle,setShowClearToggle] = useState(false);
-  const [clearConfirmText,setClearConfirmText] = useState("");
+  const [clearSelected,setClearSelected]     = useState(new Set());
   const completedCount = orders.filter(o=>o.status==="done").length;
 
   if(!unlocked) return(
@@ -1201,7 +1201,18 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
             ?<div className="empty"><div className="empty-i">🍗</div><div className="empty-m">No orders yet</div></div>
             :<div className="orders-list">
               {orders.map(o=>(
-                <div key={o.id} className={`ocard status-${o.status}`}>
+                <div key={o.id} className={`ocard status-${o.status}`} style={{position:"relative"}}>
+                  {/* Checkbox for done orders when clear mode active */}
+                  {showClearToggle&&o.status==="done"&&(
+                    <div onClick={()=>setClearSelected(p=>{const n=new Set(p);n.has(o.id)?n.delete(o.id):n.add(o.id);return n;})}
+                      style={{position:"absolute",top:10,right:10,width:22,height:22,borderRadius:5,
+                        border:`2px solid ${clearSelected.has(o.id)?"var(--rd)":"#444"}`,
+                        background:clearSelected.has(o.id)?"var(--rd)":"transparent",
+                        display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2,transition:"all .15s"
+                      }}>
+                      {clearSelected.has(o.id)&&<span style={{color:"#fff",fontSize:13,fontWeight:700}}>✓</span>}
+                    </div>
+                  )}
                   <div className="onum-chip">{o.orderNum}</div>
                   <div className="otop">
                     <div className="oname">{o.firstName} {o.lastName}</div>
@@ -1229,35 +1240,49 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
               ))}
             </div>
           }
-          {/* CLEAR ORDERS — in orders tab, hidden behind toggle */}
+
+          {/* CLEAR ORDERS CONTROLS */}
           {completedCount>0&&(
             <div style={{marginTop:14,padding:"0 2px"}}>
-              <div className="scard" style={{borderColor:"rgba(192,57,43,.2)"}}>
-                <div className="stitle" style={{color:"var(--rd)"}}>🗑 Order History</div>
-                <p style={{fontSize:10,color:"var(--gr)",marginBottom:10,lineHeight:1.5}}>
-                  You have <strong style={{color:"var(--wh)"}}>{completedCount} completed order{completedCount!==1?"s":""}</strong>. Clearing is permanent and cannot be undone.
-                </p>
-                {!showClearToggle?(
-                  <button className="btn btn-ghost" style={{fontSize:11,borderColor:"rgba(192,57,43,.3)",color:"#b08080"}}
-                    onClick={()=>setShowClearToggle(true)}>Show Clear Option</button>
-                ):(
-                  <>
-                    <div className="clear-warn" style={{marginBottom:10}}>⚠️ <strong>This cannot be undone.</strong> Only orders marked Done will be removed.</div>
-                    <p style={{fontSize:10,color:"var(--gr)",marginBottom:6}}>Type <strong style={{color:"var(--rd)"}}>CLEAR</strong> to confirm:</p>
-                    <input className="finput" placeholder="Type CLEAR to confirm"
-                      value={clearConfirmText} onChange={e=>setClearConfirmText(e.target.value)}
-                      style={{marginBottom:8,borderColor:clearConfirmText==="CLEAR"?"var(--rd)":"var(--bdr)"}}/>
-                    <div style={{display:"flex",gap:8}}>
-                      <button className="btn btn-ghost" style={{flex:1}} onClick={()=>{setShowClearToggle(false);setClearConfirmText("");}}>Cancel</button>
-                      <button className="btn btn-danger" style={{flex:1,opacity:clearConfirmText==="CLEAR"?1:.35}}
-                        disabled={clearConfirmText!=="CLEAR"}
-                        onClick={()=>{clearCompleted();setShowClearToggle(false);setClearConfirmText("");}}>
-                        🗑 Clear {completedCount} Orders
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+              {!showClearToggle?(
+                <button className="btn btn-ghost" style={{fontSize:11,borderColor:"rgba(192,57,43,.3)",color:"#b08080",width:"100%"}}
+                  onClick={()=>{setShowClearToggle(true);setClearSelected(new Set());}}>
+                  🗑 Clear Completed Orders
+                </button>
+              ):(
+                <div className="scard" style={{borderColor:"rgba(192,57,43,.25)"}}>
+                  <p style={{fontSize:10,color:"var(--gr)",marginBottom:10,lineHeight:1.5}}>
+                    <strong style={{color:"var(--rd)"}}>Clear mode active.</strong> Check the orders above you want to remove, then tap Clear Selected or Clear All. This cannot be undone.
+                  </p>
+                  <div style={{display:"flex",gap:8}}>
+                    <button className="btn btn-ghost" style={{flex:1,fontSize:11}}
+                      onClick={()=>{setShowClearToggle(false);setClearSelected(new Set());}}>
+                      Cancel
+                    </button>
+                    <button className="btn btn-danger" style={{flex:1,fontSize:11,opacity:clearSelected.size>0?1:.35}}
+                      disabled={clearSelected.size===0}
+                      onClick={async()=>{
+                        const ids=[...clearSelected];
+                        setOrders(p=>p.filter(o=>!ids.includes(o.id)));
+                        for(const id of ids){ try{ await sb.delete("orders",`?id=eq.${id}`); }catch(e){} }
+                        setShowClearToggle(false); setClearSelected(new Set());
+                        showToast(`🗑 Cleared ${ids.length} order${ids.length!==1?"s":""}`);
+                      }}>
+                      Clear Selected ({clearSelected.size})
+                    </button>
+                    <button className="btn btn-danger" style={{flex:1,fontSize:11}}
+                      onClick={async()=>{
+                        const doneIds=orders.filter(o=>o.status==="done").map(o=>o.id);
+                        setOrders(p=>p.filter(o=>o.status!=="done"));
+                        try{ await sb.delete("orders","?status=eq.done"); }catch(e){}
+                        setShowClearToggle(false); setClearSelected(new Set());
+                        showToast(`🗑 Cleared ${doneIds.length} order${doneIds.length!==1?"s":""}`);
+                      }}>
+                      Clear All ({completedCount})
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -1494,9 +1519,14 @@ function BlastTab({orders,showToast}){
             padding:"3px 10px",borderRadius:20,cursor:"pointer",textTransform:"uppercase"
           }}>{msgMode==="custom"?"✓ Selected":"Use This"}</button>
         </div>
-        <textarea className="finput" rows={3} placeholder="Write your own message here... Use {name} to personalize"
+        <textarea className="finput" rows={4} placeholder={"Write your message here...\n\nTip: Type {name} anywhere and it auto-fills each customer's first name when you tap their Text button.\n\nExample: Hey {name}! Wings are ready this Saturday 🔥"}
           value={customMsg} onChange={e=>setCustomMsg(e.target.value)}
           style={{fontSize:12,opacity:msgMode==="custom"?1:.4,transition:"opacity .2s"}}/>
+        {msgMode==="custom"&&(
+          <p style={{fontSize:10,color:"var(--or)",marginTop:5,lineHeight:1.5}}>
+            💡 Use <strong style={{fontFamily:"'JetBrains Mono',monospace",background:"rgba(245,166,35,.1)",padding:"1px 5px",borderRadius:3}}>{"{name}"}</strong> and it auto-fills each customer's first name when you tap Text
+          </p>
+        )}
       </div>
 
       {/* PREVIEW */}
