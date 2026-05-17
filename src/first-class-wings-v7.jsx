@@ -389,9 +389,11 @@ select.finput{appearance:none}
 .obadge{font-family:'Oswald',sans-serif;font-size:9px;letter-spacing:1px;padding:2px 6px;border-radius:3px;text-transform:uppercase}
 .b-new{background:rgba(245,166,35,.16);color:var(--or)}
 .b-confirmed{background:rgba(41,128,185,.16);color:var(--blue)}
+.b-cooking{background:rgba(192,57,43,.16);color:#e88}
 .b-ready{background:rgba(39,174,96,.16);color:var(--ok)}
 .b-done{background:rgba(255,255,255,.04);color:#3a3a3a}
 .b-rain{background:rgba(41,128,185,.12);color:#78b8d8}
+.ocard.status-cooking{border-left:4px solid var(--rd)}
 .odet{font-size:10px;color:var(--gr);margin-bottom:2px}
 .odet strong{color:var(--wh)}
 .oprice{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--or);margin:4px 0 2px}
@@ -583,7 +585,7 @@ export default function App(){
   async function upStatus(id,s){
     setOrders(p=>p.map(o=>o.id===id?{...o,status:s}:o));
     try{ await sb.patch("orders",`?id=eq.${id}`,{status:s}); }catch(e){ console.error(e); }
-    const toasts={ready:"🍗 Ready!",done:"✅ Done!",new:"↩ Back to New",raincheck:"🌧️ Rain Checked!"};
+    const toasts={cooking:"🍳 Cooking!",ready:"🍗 Ready!",done:"✅ Done!",new:"↩ Back to New",raincheck:"🌧️ Rain Checked!",confirmed:"✅ Confirmed!"};
     showToast(toasts[s]||"Updated!");
   }
 
@@ -1163,8 +1165,8 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
     </div>
   );
 
-  const statusLabel=(s)=>({new:"🔥 New",confirmed:"✅ Confirmed",ready:"🍗 Ready",done:"Done",raincheck:"🌧️ Rain Check"}[s]||s);
-  const badgeClass=(s)=>({new:"b-new",confirmed:"b-confirmed",ready:"b-ready",done:"b-done",raincheck:"b-rain"}[s]||"b-done");
+  const statusLabel=(s)=>({new:"🔥 New",confirmed:"✅ Confirmed",cooking:"🍳 Cooking",ready:"🍗 Ready",done:"✅ Done",raincheck:"🌧️ Rain Check"}[s]||s);
+  const badgeClass=(s)=>({new:"b-new",confirmed:"b-confirmed",cooking:"b-cooking",ready:"b-ready",done:"b-done",raincheck:"b-rain"}[s]||"b-done");
   const prevMonth=()=>setCalMonth(p=>p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1});
   const nextMonth=()=>setCalMonth(p=>p.m===11?{y:p.y+1,m:0}:{y:p.y,m:p.m+1});
 
@@ -1209,7 +1211,8 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
           {orders.length===0
             ?<div className="empty"><div className="empty-i">🍗</div><div className="empty-m">No orders yet</div></div>
             :<div className="orders-list">
-              {orders.map(o=>(
+              {/* ACTIVE ORDERS FIRST */}
+              {orders.filter(o=>o.status!=="done"&&o.status!=="raincheck").map(o=>(
                 <div key={o.id} className={`ocard status-${o.status}`} style={{position:"relative"}}>
                   {/* Checkbox for done orders when clear mode active */}
                   {showClearToggle&&o.status==="done"&&(
@@ -1263,25 +1266,60 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
                         ↩ Unconfirm
                       </a>
                       <a className="abtn a-ok" style={{textDecoration:"none",textAlign:"center"}}
-                        href={`sms:${o.phone}&body=Hey ${o.firstName}! Your First Class Wings order ${o.orderNum} is being prepared now 🍗🔥 We'll let you know when it's ready for pickup!`}
+                        href={`sms:${o.phone}&body=Hey ${o.firstName}! 🍳 We're making your First Class Wings right now! Order ${o.orderNum} is in the fryer. Won't be long! 🔥`}
+                        onClick={()=>setTimeout(()=>upStatus(o.id,"cooking"),500)}>
+                        🍳 Start Cooking
+                      </a>
+                    </>}
+                    {o.status==="cooking"&&(
+                      <a className="abtn a-ok" style={{textDecoration:"none",textAlign:"center",width:"100%",justifyContent:"center"}}
+                        href={`sms:${o.phone}&body=Hey ${o.firstName}! 🍗🔥 Your First Class Wings are READY for pickup! Order ${o.orderNum}%0A%0A📍 ${settings.pickupAddress}%0A%0ASee you soon! 👑`}
                         onClick={()=>setTimeout(()=>upStatus(o.id,"ready"),500)}>
-                        🍗 Mark Ready
+                        🍗 Mark Ready — Notify Customer
                       </a>
-                    </>}
-                    {o.status==="ready"&&<>
-                      <a className="abtn a-sms" style={{flex:1,textAlign:"center"}}
-                        href={`sms:${o.phone}&body=Hey ${o.firstName}! Your First Class Wings are READY 🔥🍗 Order ${o.orderNum} — Pickup at: ${settings.pickupAddress}`}>
-                        📱 Text Customer — Ready!
-                      </a>
-                      <button className="abtn a-done" onClick={()=>upStatus(o.id,"done")}>✅ Done</button>
-                    </>}
-                    {["new","confirmed","ready"].includes(o.status)&&(
+                    )}
+                    {o.status==="ready"&&(
+                      <button className="abtn a-done" style={{width:"100%",justifyContent:"center"}}
+                        onClick={()=>upStatus(o.id,"done")}>
+                        ✅ Complete Order
+                      </button>
+                    )}
+                    {["new","confirmed","cooking","ready"].includes(o.status)&&(
                       <button className="abtn" style={{background:"rgba(41,128,185,.08)",border:"1px solid rgba(41,128,185,.25)",color:"#78b8d8",marginTop:4,width:"100%",justifyContent:"center"}}
                         onClick={()=>setRaincheckModal(o)}>🌧️ Rain Check Order</button>
                     )}
                   </div>
                 </div>
               ))}
+
+              {/* COMPLETED — dimmed at bottom */}
+              {orders.filter(o=>o.status==="done").length>0&&(
+                <div style={{marginTop:14}}>
+                  <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:2,color:"#2a2a2a",textTransform:"uppercase",marginBottom:6,paddingLeft:2}}>
+                    ✅ Completed — {orders.filter(o=>o.status==="done").length} order{orders.filter(o=>o.status==="done").length!==1?"s":""}
+                  </div>
+                  {orders.filter(o=>o.status==="done").map(o=>(
+                    <div key={o.id} className="ocard status-done" style={{marginBottom:6,position:"relative"}}>
+                      {showClearToggle&&(
+                        <div onClick={()=>setClearSelected(p=>{const n=new Set(p);n.has(o.id)?n.delete(o.id):n.add(o.id);return n;})}
+                          style={{position:"absolute",top:10,right:10,width:22,height:22,borderRadius:5,
+                            border:`2px solid ${clearSelected.has(o.id)?"var(--rd)":"#333"}`,
+                            background:clearSelected.has(o.id)?"var(--rd)":"transparent",
+                            display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2
+                          }}>
+                          {clearSelected.has(o.id)&&<span style={{color:"#fff",fontSize:13,fontWeight:700}}>✓</span>}
+                        </div>
+                      )}
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#333"}}>{o.orderNum}</div>
+                        <span className="obadge b-done">✅ Done</span>
+                      </div>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#333"}}>{o.firstName} {o.lastName} · ${o.total}</div>
+                      <div style={{fontSize:10,color:"#2a2a2a",marginTop:2}}>{o.cartItems?.map(i=>i.combo.label).join(", ")}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           }
 
@@ -1471,9 +1509,11 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
               <div className="form-grp" key={k}><label className="flabel">{l}</label><input className="finput" value={settings[k]||""} onChange={e=>setSettings(s=>({...s,[k]:e.target.value}))} placeholder={p}/></div>
             ))}
           </div>
-          <div className="scard">
-            <div className="stitle">📍 Pickup Info</div>
-            <textarea className="finput" value={settings.pickupAddress||""} onChange={e=>setSettings(s=>({...s,pickupAddress:e.target.value}))} placeholder="Address or instructions sent when order is ready"/>
+          <div className="scard" style={{borderColor:"rgba(245,166,35,.2)"}}>
+            <div className="stitle">📍 Pickup Location</div>
+            <p style={{fontSize:10,color:"var(--gr)",marginBottom:8,lineHeight:1.5}}>This goes out automatically in every <strong style={{color:"var(--or)"}}>Ready</strong> text message. Update it anytime — takes effect immediately.</p>
+            <textarea className="finput" rows={3} value={settings.pickupAddress||""} onChange={e=>setSettings(s=>({...s,pickupAddress:e.target.value}))} placeholder="e.g. 123 Main St, Savannah GA — or corner of MLK and Bay St, look for the red truck 🚚"/>
+            <p style={{fontSize:9,color:"var(--gr)",marginTop:5}}>Preview: "...READY for pickup! 📍 {settings.pickupAddress||"[your address here]"}"</p>
           </div>
           <div className="scard">
             <div className="stitle">🔐 Security</div>
