@@ -497,6 +497,15 @@ export default function App(){
   const [building,setBuilding]       = useLocalStorage("fcw_building",{combo:null,flavor1:null,flavor2:null,hh:false,qty:1});
   const [custScreen,setCustScreen]   = useLocalStorage("fcw_cust_screen","build");
   const [screenHistory,setScreenHistory] = useLocalStorage("fcw_screen_hist",["build"]);
+
+  // Always start on build screen when app opens fresh
+  useEffect(()=>{
+    if(custScreen==="checkout"||custScreen==="receipt"){
+      setCustScreen("build");
+      setScreenHistory(["build"]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
   const [menuOpen,setMenuOpen]           = useState(false);
   const [installModal,setInstallModal]   = useState(false);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
@@ -832,6 +841,27 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
         </div>
         <div className="receipt">
 
+          {/* STEP BY STEP */}
+          <div style={{background:"rgba(245,166,35,.04)",border:"1px solid rgba(245,166,35,.15)",borderRadius:8,padding:"12px 14px",marginBottom:14}}>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"var(--or)",letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>What to do next</div>
+            {[
+              {n:"1",text:"Copy the payment note below"},
+              {n:"2",text:"Open Cash App, Venmo, or Zelle"},
+              {n:"3",text:"Enter the amount and paste the note into the memo field"},
+              {n:"4",text:"Send payment"},
+              {n:"5",text:"Screenshot your order summary to save it"},
+            ].map(s=>(
+              <div key={s.n} style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:8}}>
+                <div style={{
+                  width:20,height:20,borderRadius:"50%",background:"var(--or)",
+                  color:"#000",fontFamily:"'Bebas Neue',sans-serif",fontSize:12,
+                  display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1
+                }}>{s.n}</div>
+                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--wh)",letterSpacing:.5,lineHeight:1.5,paddingTop:2}}>{s.text}</div>
+              </div>
+            ))}
+          </div>
+
           {/* 1 — PAYMENT WARNING */}
           <div className="warn-banner" style={{marginBottom:12}}>
             <span className="ban-ico">⚠️</span>
@@ -880,7 +910,10 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               </div>
               <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
               {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
-              {lastOrder.orderTime?.day&&<div className="rs-row"><span className="rs-lbl">Requested</span><span className="rs-val">{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>}
+              {lastOrder.orderTime?.day
+                ? <div className="rs-row"><span className="rs-lbl">📅 Pickup</span><span className="rs-val" style={{color:"var(--or)",fontWeight:600}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>
+                : <div className="rs-row"><span className="rs-lbl">📅 Pickup</span><span className="rs-val" style={{color:"#888"}}>ASAP</span></div>
+              }
               {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
               <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
             </div>
@@ -980,7 +1013,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
 
           <div className="info-banner">
             <span className="ban-ico">📱</span>
-            <div className="ban-txt">Once payment is confirmed, you'll receive a text at <strong>{lastOrder.phone}</strong>.</div>
+            <div className="ban-txt">Once payment is confirmed, you'll receive a text confirmation.</div>
           </div>
 
           <button className="btn btn-or" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>Place Another Order</button>
@@ -1388,7 +1421,24 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
   const [raincheckModal,setRaincheckModal]   = useState(null);
   const [attempts,setAttempts]               = useState(0);
   const [lockedUntil,setLockedUntil]         = useState(null);
+  const [sortBy,setSortBy]                   = useState("newest");
   const completedCount = orders.filter(o=>o.status==="done").length;
+
+  function getSortedOrders(){
+    const active = orders.filter(o=>o.status!=="done"&&o.status!=="raincheck");
+    switch(sortBy){
+      case "pickup": return [...active].sort((a,b)=>{
+        const ta=a.orderTime?.time||"zzz";
+        const tb=b.orderTime?.time||"zzz";
+        return ta.localeCompare(tb);
+      });
+      case "status": {
+        const ord=["new","confirmed","cooking","ready"];
+        return [...active].sort((a,b)=>ord.indexOf(a.status)-ord.indexOf(b.status));
+      }
+      default: return active;
+    }
+  }
 
   const MAX_ATTEMPTS = 5;
   const LOCKOUT_MINS = 10;
@@ -1513,8 +1563,23 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
           {orders.length===0
             ?<div className="empty"><div className="empty-i">🍗</div><div className="empty-m">No orders yet</div></div>
             :<div className="orders-list">
-              {/* ACTIVE ORDERS FIRST */}
-              {orders.filter(o=>o.status!=="done"&&o.status!=="raincheck").map(o=>(
+
+              {/* SORT CONTROLS */}
+              <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap"}}>
+                <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#444",letterSpacing:1,textTransform:"uppercase",alignSelf:"center",marginRight:2}}>Sort:</span>
+                {[["newest","🕐 Newest"],["pickup","📅 Pickup Time"],["status","🔥 Status"]].map(([val,label])=>(
+                  <button key={val} onClick={()=>setSortBy(val)} style={{
+                    background:sortBy===val?"rgba(245,166,35,.15)":"none",
+                    border:`1px solid ${sortBy===val?"rgba(245,166,35,.4)":"#2a2a2a"}`,
+                    color:sortBy===val?"var(--or)":"#444",
+                    fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:.5,
+                    padding:"4px 9px",borderRadius:4,cursor:"pointer",textTransform:"uppercase"
+                  }}>{label}</button>
+                ))}
+              </div>
+
+              {/* ACTIVE ORDERS */}
+              {getSortedOrders().map(o=>(
                 <div key={o.id} className={`ocard status-${o.status}`} style={{position:"relative"}}>
                   {/* Checkbox for done orders when clear mode active */}
                   {showClearToggle&&o.status==="done"&&(
