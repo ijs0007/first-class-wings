@@ -243,6 +243,7 @@ body{background:var(--blk);color:var(--wh);font-family:'Inter',sans-serif;min-he
 .time-slot{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:.5px;padding:6px 4px;border-radius:4px;cursor:pointer;transition:all .2s;text-transform:uppercase;border:1px solid var(--bdr);background:none;color:var(--gr);text-align:center}
 .time-slot:hover{border-color:rgba(245,166,35,.4);color:var(--wh)}
 .time-slot.sel{background:var(--or);color:var(--blk);border-color:var(--or)}
+.time-slot.past{opacity:.25;cursor:not-allowed;text-decoration:line-through}
 .special-day-note{background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.2);border-radius:6px;padding:9px 10px;margin-top:7px;font-size:11px;color:rgba(245,166,35,.8);line-height:1.5}
 
 /* ORDER REVIEW */
@@ -652,7 +653,7 @@ export default function App(){
           <button className={`ntab ${view==="customer"?"active":""}`} onClick={()=>setView("customer")}>Order</button>
           <button className="ntab" onClick={()=>setMenuOpen(true)}>Menu</button>
           <button className={`ntab ${view==="owner"?"active":""}`} onClick={()=>setView("owner")}>
-            Owner{ownerUnlocked&&newCt>0?` (${newCt})`:""}
+            Owner{ownerUnlocked&&view==="owner"&&newCt>0?` (${newCt})`:""}
           </button>
         </div>
       </nav>
@@ -1175,6 +1176,25 @@ function TimeDayPicker({orderTime,setOrderTime,thisWeekOpenDays,settings}){
     : { open:"11:00", close:"20:00", slotMins:30 };
   const slots = generateTimeSlots(dateHours.open, dateHours.close, dateHours.slotMins);
 
+  // Determine if selected day is today
+  const isToday = selectedDayKey ? (()=>{
+    const now2=new Date(); const off=(DAYS.indexOf(selectedDayKey)+1)-now2.getDay();
+    return off === 0 || (off === 7 && now2.getDay() === 0);
+  })() : false;
+
+  function isSlotPast(slot){
+    if(!isToday) return false;
+    const now2=new Date();
+    const [timePart,ampm]=slot.split(" ");
+    const [h,m]=timePart.split(":").map(Number);
+    let hour24=h;
+    if(ampm==="PM"&&h!==12) hour24=h+12;
+    if(ampm==="AM"&&h===12) hour24=0;
+    const slotMins=hour24*60+m;
+    const nowMins=now2.getHours()*60+now2.getMinutes();
+    return slotMins<=nowMins;
+  }
+
   return(
     <div className={`time-picker-card ${hasSelection?"has-selection":""}`}>
       <div className="tp-header">
@@ -1221,12 +1241,17 @@ function TimeDayPicker({orderTime,setOrderTime,thisWeekOpenDays,settings}){
         <div className="tp-row" style={{marginBottom:0}}>
           <div className="tp-label">Preferred Pickup Time</div>
           <div className="time-slots">
-            {slots.map(slot=>(
-              <button key={slot} className={`time-slot ${orderTime.time===slot?"sel":""}`}
-                onClick={()=>setOrderTime(p=>({...p,time:slot}))}>
-                {slot}
-              </button>
-            ))}
+            {slots.map(slot=>{
+              const past = isSlotPast(slot);
+              return(
+                <button key={slot}
+                  className={`time-slot ${orderTime.time===slot?"sel":""} ${past?"past":""}`}
+                  disabled={past}
+                  onClick={()=>!past&&setOrderTime(p=>({...p,time:slot}))}>
+                  {slot}
+                </button>
+              );
+            })}
           </div>
         </div>
       ):null}
