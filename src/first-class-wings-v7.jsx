@@ -841,90 +841,97 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
         </div>
         <div className="receipt">
 
-          {/* STEP BY STEP */}
-          <div style={{background:"rgba(245,166,35,.04)",border:"1px solid rgba(245,166,35,.15)",borderRadius:8,padding:"12px 14px",marginBottom:14}}>
-            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"var(--or)",letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>What to do next</div>
-            {[
-              {n:"1",text:"Copy the payment note below"},
-              {n:"2",text:"Open Cash App, Venmo, or Zelle"},
-              {n:"3",text:"Enter the amount and paste the note into the memo field"},
-              {n:"4",text:"Send payment"},
-              {n:"5",text:"Screenshot your order summary to save it"},
-            ].map(s=>(
-              <div key={s.n} style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:8}}>
-                <div style={{
-                  width:20,height:20,borderRadius:"50%",background:"var(--or)",
-                  color:"#000",fontFamily:"'Bebas Neue',sans-serif",fontSize:12,
-                  display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1
-                }}>{s.n}</div>
-                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--wh)",letterSpacing:.5,lineHeight:1.5,paddingTop:2}}>{s.text}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* 1 — PAYMENT WARNING */}
-          <div className="warn-banner" style={{marginBottom:12}}>
+          {/* WARNING BANNER */}
+          <div className="warn-banner" style={{marginBottom:14}}>
             <span className="ban-ico">⚠️</span>
-            <div className="ban-txt"><strong>Send payment to complete your order.</strong> Your order won't be confirmed until payment is received and the owner verifies it.</div>
+            <div className="ban-txt">Follow the steps below to complete your order. Your order won't be confirmed until payment is received and the owner verifies it.</div>
           </div>
 
-          {/* 2 — PAYMENT NOTE */}
-          <div className="pay-note-card" style={{marginBottom:12}}>
-            <div className="pn-title"><div className="pn-dot"/>Add This Note to Your Payment</div>
-            <div className="pn-desc" style={{marginTop:4}}>Paste into the memo/description when you pay — this connects your payment to your order.</div>
-            <div className="pn-body">{payNote}</div>
-            <button className={`copy-btn ${copied?"copy-done":"copy-idle"}`} onClick={()=>copyNote(payNote)}>
-              {copied?"✓ Copied!":"📋 Tap to Copy"}
-            </button>
-          </div>
-
-          {/* 3 — PAY BUTTONS */}
-          <div className="pay-actions" style={{marginBottom:16}}>
-            <a className="pa-btn pa-cashapp" href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
-              <span>💚</span><span style={{flex:1}}>Pay with Cash App</span><span className="pa-amount">${lastOrder.total}</span>
-            </a>
-            <a className="pa-btn pa-venmo" href={venmoLink(settings.venmo,lastOrder.total,payNote)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
-              <span>💜</span><span style={{flex:1}}>Pay with Venmo</span><span className="pa-amount">${lastOrder.total}</span>
-            </a>
-            <a className="pa-btn pa-zelle" href="https://enroll.zellepay.com/" target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
-              <span>📱</span><span style={{flex:1}}>Zelle: {settings.zelle}</span><span className="pa-amount">${lastOrder.total}</span>
-            </a>
-          </div>
-
-          <div style={{position:"relative",marginBottom:8}}>
-            {/* Corner bracket marks */}
-            <div style={{position:"absolute",top:-6,left:-6,width:16,height:16,borderTop:"2px solid var(--or)",borderLeft:"2px solid var(--or)",borderRadius:"2px 0 0 0",zIndex:1}}/>
-            <div style={{position:"absolute",top:-6,right:-6,width:16,height:16,borderTop:"2px solid var(--or)",borderRight:"2px solid var(--or)",borderRadius:"0 2px 0 0",zIndex:1}}/>
-            <div style={{position:"absolute",bottom:-6,left:-6,width:16,height:16,borderBottom:"2px solid var(--or)",borderLeft:"2px solid var(--or)",borderRadius:"0 0 0 2px",zIndex:1}}/>
-            <div style={{position:"absolute",bottom:-6,right:-6,width:16,height:16,borderBottom:"2px solid var(--or)",borderRight:"2px solid var(--or)",borderRadius:"0 0 2px 0",zIndex:1}}/>
-
-            <div className="rs-card">
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <div className="rs-title" style={{margin:0}}>Order Summary</div>
-                <button onClick={()=>setReceiptOverlay(true)} style={{
-                  background:"rgba(245,166,35,.1)",border:"1px solid rgba(245,166,35,.3)",
-                  color:"var(--or)",fontFamily:"'Oswald',sans-serif",fontSize:9,
-                  letterSpacing:1,padding:"4px 10px",borderRadius:4,cursor:"pointer",
-                  textTransform:"uppercase"
-                }}>⛶ Enlarge</button>
+          {/* STEP 1 — COPY NOTE */}
+          <div style={{display:"flex",gap:10,marginBottom:10}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0}}>
+              <div style={{width:22,height:22,borderRadius:"50%",background:"var(--or)",color:"#000",fontFamily:"'Bebas Neue',sans-serif",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>1</div>
+              <div style={{width:1,flex:1,background:"#2a2a2a",marginTop:4}}/>
+            </div>
+            <div style={{flex:1,paddingBottom:10}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>Copy payment note</div>
+              <div className="pay-note-card">
+                <div className="pn-title"><div className="pn-dot"/>Add This Note to Your Payment</div>
+                <div className="pn-desc" style={{marginTop:4}}>Paste into the memo/description when you pay.</div>
+                <div className="pn-body">{payNote}</div>
+                <button className={`copy-btn ${copied?"copy-done":"copy-idle"}`} onClick={()=>copyNote(payNote)}>
+                  {copied?"✓ Copied!":"📋 Tap to Copy"}
+                </button>
               </div>
-              <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
-              {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
-              {lastOrder.orderTime?.day
-                ? <div className="rs-row"><span className="rs-lbl">📅 Pickup</span><span className="rs-val" style={{color:"var(--or)",fontWeight:600}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>
-                : <div className="rs-row"><span className="rs-lbl">📅 Pickup</span><span className="rs-val" style={{color:"#888"}}>ASAP</span></div>
-              }
-              {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
-              <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
             </div>
           </div>
 
-          <div style={{textAlign:"center",padding:"6px 0 10px"}}>
-            <div style={{color:"var(--or)",fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,textTransform:"uppercase"}}>📸 Screenshot this box</div>
-            <div style={{color:"#444",fontSize:9,marginTop:3,letterSpacing:.3}}>or tap Enlarge for a clean full-screen receipt</div>
+          {/* STEP 2 — PAY */}
+          <div style={{display:"flex",gap:10,marginBottom:10}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0}}>
+              <div style={{width:22,height:22,borderRadius:"50%",background:"var(--or)",color:"#000",fontFamily:"'Bebas Neue',sans-serif",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>2</div>
+              <div style={{width:1,flex:1,background:"#2a2a2a",marginTop:4}}/>
+            </div>
+            <div style={{flex:1,paddingBottom:10}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>Open pay app · paste note · send payment</div>
+              <div className="pay-actions">
+                <a className="pa-btn pa-cashapp" href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
+                  <span>💚</span><span style={{flex:1}}>Pay with Cash App</span><span className="pa-amount">${lastOrder.total}</span>
+                </a>
+                <a className="pa-btn pa-venmo" href={venmoLink(settings.venmo,lastOrder.total,payNote)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
+                  <span>💜</span><span style={{flex:1}}>Pay with Venmo</span><span className="pa-amount">${lastOrder.total}</span>
+                </a>
+                <a className="pa-btn pa-zelle" href="https://enroll.zellepay.com/" target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
+                  <span>📱</span><span style={{flex:1}}>Zelle: {settings.zelle}</span><span className="pa-amount">${lastOrder.total}</span>
+                </a>
+              </div>
+            </div>
           </div>
 
-          {/* RECEIPT OVERLAY */}
+          {/* STEP 3 — ORDER SUMMARY */}
+          <div style={{display:"flex",gap:10,marginBottom:14}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0}}>
+              <div style={{width:22,height:22,borderRadius:"50%",background:"var(--or)",color:"#000",fontFamily:"'Bebas Neue',sans-serif",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>3</div>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>Screenshot your order summary</div>
+              <div style={{position:"relative",padding:6}}>
+                <div style={{position:"absolute",top:0,left:0,width:14,height:14,borderTop:"2px solid var(--or)",borderLeft:"2px solid var(--or)"}}/>
+                <div style={{position:"absolute",top:0,right:0,width:14,height:14,borderTop:"2px solid var(--or)",borderRight:"2px solid var(--or)"}}/>
+                <div style={{position:"absolute",bottom:0,left:0,width:14,height:14,borderBottom:"2px solid var(--or)",borderLeft:"2px solid var(--or)"}}/>
+                <div style={{position:"absolute",bottom:0,right:0,width:14,height:14,borderBottom:"2px solid var(--or)",borderRight:"2px solid var(--or)"}}/>
+                <div className="rs-card">
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <div className="rs-title" style={{margin:0}}>Order Summary</div>
+                    <button onClick={()=>setReceiptOverlay(true)} style={{
+                      background:"rgba(245,166,35,.1)",border:"1px solid rgba(245,166,35,.3)",
+                      color:"var(--or)",fontFamily:"'Oswald',sans-serif",fontSize:9,
+                      letterSpacing:1,padding:"4px 10px",borderRadius:4,cursor:"pointer",textTransform:"uppercase"
+                    }}>⛶ Enlarge</button>
+                  </div>
+                  <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
+                  {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
+                  {lastOrder.orderTime?.day
+                    ?<div className="rs-row"><span className="rs-lbl">📅 Pickup</span><span className="rs-val" style={{color:"var(--or)"}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>
+                    :<div className="rs-row"><span className="rs-lbl">📅 Pickup</span><span className="rs-val" style={{color:"#888"}}>ASAP</span></div>
+                  }
+                  {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
+                  <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
+                </div>
+              </div>
+              <div style={{textAlign:"center",marginTop:6,fontSize:9,color:"#444",letterSpacing:.3}}>or tap Enlarge for a clean full-screen receipt</div>
+            </div>
+          </div>
+
+          {/* TEXT CONFIRMATION NOTE */}
+          <div className="info-banner" style={{marginBottom:14}}>
+            <span className="ban-ico">📱</span>
+            <div className="ban-txt">Once payment is confirmed, you'll receive a text confirmation.</div>
+          </div>
+
+          {/* PLACE ANOTHER ORDER */}
+          <button className="btn btn-or" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>Place Another Order</button>
+          <div style={{height:20}}/>
           {receiptOverlay&&(
             <div style={{
               position:"fixed",inset:0,zIndex:999,
@@ -1011,13 +1018,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             </div>
           )}
 
-          <div className="info-banner">
-            <span className="ban-ico">📱</span>
-            <div className="ban-txt">Once payment is confirmed, you'll receive a text confirmation.</div>
-          </div>
-
-          <button className="btn btn-or" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>Place Another Order</button>
-          <div style={{height:20}}/>
         </div>
       </div>
     );
