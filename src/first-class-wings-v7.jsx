@@ -1913,7 +1913,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                   ))}
                 </div>
               )}
-          {completedCount>0&&(
+            </div>
+          }
+
+          {/* CLEAR ORDERS CONTROLS */}
             <div style={{marginTop:14,padding:"0 2px"}}>
               {!showClearToggle?(
                 <button className="btn btn-ghost" style={{fontSize:11,borderColor:"rgba(192,57,43,.3)",color:"#b08080",width:"100%"}}
