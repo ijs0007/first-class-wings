@@ -620,14 +620,14 @@ export default function App(){
 
   async function clearCompleted(ids){
     if(ids&&ids.length>0){
-      // Archive selected orders
-      setOrders(p=>p.filter(o=>!ids.includes(o.id)));
+      // Archive selected — update status in state instead of removing
+      setOrders(p=>p.map(o=>ids.includes(o.id)?{...o,status:"archived"}:o));
       for(const id of ids){
         try{ await sb.patch("orders",`?id=eq.${id}`,{status:"archived"}); }catch(e){ console.error(e); }
       }
     } else {
-      // Archive all done orders
-      setOrders(p=>p.filter(o=>o.status!=="done"));
+      // Archive all done orders — keep in state as archived
+      setOrders(p=>p.map(o=>o.status==="done"?{...o,status:"archived"}:o));
       try{ await sb.patch("orders","?status=eq.done",{status:"archived"}); }catch(e){ console.error(e); }
     }
     showToast("Orders archived! 📦");
@@ -1814,7 +1814,6 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                       disabled={clearSelected.size===0}
                       onClick={async()=>{
                         const ids=[...clearSelected];
-                        for(const id of ids){ try{ await sb.patch("orders",`?id=eq.${id}`,{status:"archived"}); }catch(e){} }
                         clearCompleted(ids);
                         setShowClearToggle(false); setClearSelected(new Set());
                         showToast(`🗑 Cleared ${ids.length} order${ids.length!==1?"s":""}`);
