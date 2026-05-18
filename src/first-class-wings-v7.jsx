@@ -482,7 +482,7 @@ export default function App(){
   const [openDates,setOpenDates] = useState({});
   const [settings,setSettingsState] = useState({
     cashapp:"$FirstClassWings", venmo:"FirstClassWings", zelle:"912-227-4387",
-    pickupAddress:"Text owner for pickup address", ownerPin:"1234", dateHours:{},
+    pickupAddress:"Text owner for pickup address", ownerPin:"Wings@24!", dateHours:{},
     ownerPhone:"", isClosed:false, closedMsg:"", customMsgs:{},
   });
   const [loading,setLoading] = useState(true);
@@ -831,7 +831,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           {/* 1 — PAYMENT WARNING */}
           <div className="warn-banner" style={{marginBottom:12}}>
             <span className="ban-ico">⚠️</span>
-            <div className="ban-txt"><strong>Send payment to complete your order.</strong> Your order won't be prepared until payment is received and the owner verifies it.</div>
+            <div className="ban-txt"><strong>Send payment to complete your order.</strong> Your order won't be confirmed until payment is received and the owner verifies it.</div>
           </div>
 
           {/* 2 — PAYMENT NOTE */}
@@ -857,6 +857,8 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             </a>
           </div>
 
+          <div className="screenshot-note">📸 <strong>Screenshot the Order Summary</strong> below as proof of your order number and details</div>
+
           {/* 4 — ORDER SUMMARY */}
           <div className="rs-card">
             <div className="rs-title">Order Summary</div>
@@ -867,7 +869,6 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
           </div>
 
-          <div className="screenshot-note">📸 <strong>Screenshot the Order Summary</strong> below as proof of your order number and details</div>
           <div className="info-banner">
             <span className="ban-ico">📱</span>
             <div className="ban-txt">Once payment is confirmed, you'll receive a text at <strong>{lastOrder.phone}</strong>.</div>
