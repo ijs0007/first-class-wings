@@ -816,7 +816,11 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
   function submitOrder(){
     if(!validate()) return;
     const now=new Date(); const orderNum=genOrderNum(); const time=fmtTime(now); const date=fmtDate(now);
-    const order={cartItems:cart,total:cartTotal,orderNum,time,date,...form,pay:"cashapp",specDay:orderTime?.isSpecial||false,reqDay:orderTime?.day||""};
+    const order={
+      cartItems:cart, total:cartTotal, orderNum, time, date, ...form, pay:"cashapp",
+      specDay:orderTime?.isSpecial||false, reqDay:orderTime?.day||"",
+      orderTime:{day:orderTime?.day||"", time:orderTime?.time||"", isSpecial:orderTime?.isSpecial||false}
+    };
     addOrder(order); setLastOrder(order); navigate("receipt");
     setCart([]); setB(fresh()); setStep(1);
     setForm({firstName:"",lastName:"",phone:"",notes:""});
@@ -917,6 +921,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
                     }}>⛶ Enlarge</button>
                   </div>
                   <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
+                  <div className="rs-row"><span className="rs-lbl">Placed</span><span className="rs-val" style={{color:"#888"}}>{lastOrder.date} · {lastOrder.time}</span></div>
                   {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
                   {lastOrder.orderTime?.day
                     ?<div className="rs-row"><span className="rs-lbl">⏱ Est. Pickup</span><span className="rs-val" style={{color:"var(--or)",fontWeight:600}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>
