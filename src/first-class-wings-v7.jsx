@@ -819,6 +819,8 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
   const itemSub  = b.combo?b.combo.price*b.qty:0;
   const STEPS    = ["Combo","Flavor","Qty","Order"];
 
+  const [receiptOverlay,setReceiptOverlay] = useState(false);
+
   // ── RECEIPT ──
   if(screen==="receipt"&&lastOrder){
     const payNote=buildPayNote(lastOrder);
@@ -866,9 +868,16 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             <div style={{position:"absolute",bottom:-6,left:-6,width:16,height:16,borderBottom:"2px solid var(--or)",borderLeft:"2px solid var(--or)",borderRadius:"0 0 0 2px",zIndex:1}}/>
             <div style={{position:"absolute",bottom:-6,right:-6,width:16,height:16,borderBottom:"2px solid var(--or)",borderRight:"2px solid var(--or)",borderRadius:"0 0 2px 0",zIndex:1}}/>
 
-            {/* ORDER SUMMARY */}
             <div className="rs-card">
-              <div className="rs-title">Order Summary</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div className="rs-title" style={{margin:0}}>Order Summary</div>
+                <button onClick={()=>setReceiptOverlay(true)} style={{
+                  background:"rgba(245,166,35,.1)",border:"1px solid rgba(245,166,35,.3)",
+                  color:"var(--or)",fontFamily:"'Oswald',sans-serif",fontSize:9,
+                  letterSpacing:1,padding:"4px 10px",borderRadius:4,cursor:"pointer",
+                  textTransform:"uppercase"
+                }}>⛶ Enlarge</button>
+              </div>
               <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
               {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
               {lastOrder.orderTime?.day&&<div className="rs-row"><span className="rs-lbl">Requested</span><span className="rs-val">{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>}
@@ -879,8 +888,95 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
 
           <div style={{textAlign:"center",padding:"6px 0 10px"}}>
             <div style={{color:"var(--or)",fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,textTransform:"uppercase"}}>📸 Screenshot this box</div>
-            <div style={{color:"#444",fontSize:9,marginTop:3,letterSpacing:.3}}>Proof of your order number & details</div>
+            <div style={{color:"#444",fontSize:9,marginTop:3,letterSpacing:.3}}>or tap Enlarge for a clean full-screen receipt</div>
           </div>
+
+          {/* RECEIPT OVERLAY */}
+          {receiptOverlay&&(
+            <div style={{
+              position:"fixed",inset:0,zIndex:999,
+              background:"rgba(0,0,0,.92)",
+              display:"flex",flexDirection:"column",
+              alignItems:"center",justifyContent:"center",
+              padding:"24px 20px"
+            }}>
+              {/* Clean receipt card */}
+              <div style={{
+                background:"#0f0f0f",border:"1px solid rgba(245,166,35,.3)",
+                borderRadius:12,padding:"28px 24px",width:"100%",maxWidth:340,
+                position:"relative"
+              }}>
+                {/* Corner brackets */}
+                <div style={{position:"absolute",top:-8,left:-8,width:20,height:20,borderTop:"2.5px solid var(--or)",borderLeft:"2.5px solid var(--or)"}}/>
+                <div style={{position:"absolute",top:-8,right:-8,width:20,height:20,borderTop:"2.5px solid var(--or)",borderRight:"2.5px solid var(--or)"}}/>
+                <div style={{position:"absolute",bottom:-8,left:-8,width:20,height:20,borderBottom:"2.5px solid var(--or)",borderLeft:"2.5px solid var(--or)"}}/>
+                <div style={{position:"absolute",bottom:-8,right:-8,width:20,height:20,borderBottom:"2.5px solid var(--or)",borderRight:"2.5px solid var(--or)"}}/>
+
+                {/* Header */}
+                <div style={{textAlign:"center",marginBottom:20}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:"var(--or)",letterSpacing:3}}>FIRST CLASS WINGS</div>
+                  <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#555",letterSpacing:2,textTransform:"uppercase",marginTop:2}}>Order Confirmation</div>
+                </div>
+
+                {/* Divider */}
+                <div style={{borderTop:"1px dashed #2a2a2a",marginBottom:16}}/>
+
+                {/* Order details */}
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#555",letterSpacing:.5,textTransform:"uppercase"}}>Order #</span>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"var(--or)",fontWeight:700}}>{lastOrder.orderNum}</span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#555",letterSpacing:.5,textTransform:"uppercase"}}>Date</span>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--wh)"}}>{lastOrder.date} · {lastOrder.time}</span>
+                </div>
+
+                <div style={{borderTop:"1px dashed #2a2a2a",margin:"12px 0"}}/>
+
+                {lastOrder.cartItems?.map((item,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--wh)"}}>{item.combo.label}</span>
+                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#888"}}>{item.flavorLabel} ×{item.qty}</span>
+                  </div>
+                ))}
+
+                {lastOrder.orderTime?.day&&(
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:.5}}>Pickup</span>
+                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--wh)"}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span>
+                  </div>
+                )}
+
+                {lastOrder.notes&&(
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:.5}}>Notes</span>
+                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--wh)",textAlign:"right",maxWidth:"60%"}}>{lastOrder.notes}</span>
+                  </div>
+                )}
+
+                <div style={{borderTop:"1px dashed #2a2a2a",margin:"12px 0"}}/>
+
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:13,color:"var(--wh)",letterSpacing:1,textTransform:"uppercase"}}>Total</span>
+                  <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:"var(--or)",letterSpacing:1}}>${lastOrder.total}</span>
+                </div>
+
+                <div style={{borderTop:"1px dashed #2a2a2a",marginTop:16,paddingTop:12,textAlign:"center"}}>
+                  <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#444",letterSpacing:1,textTransform:"uppercase"}}>Thank you for supporting local 🍗👑</div>
+                </div>
+              </div>
+
+              {/* Screenshot hint + close */}
+              <div style={{marginTop:20,textAlign:"center"}}>
+                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--or)",letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>📸 Take a screenshot now</div>
+                <button onClick={()=>setReceiptOverlay(false)} style={{
+                  background:"none",border:"1px solid #333",color:"#555",
+                  fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,
+                  padding:"8px 24px",borderRadius:4,cursor:"pointer",textTransform:"uppercase",marginTop:6
+                }}>Close</button>
+              </div>
+            </div>
+          )}
 
           <div className="info-banner">
             <span className="ban-ico">📱</span>
