@@ -1648,7 +1648,6 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
   const badgeClass=(s)=>({new:"b-new",confirmed:"b-confirmed",cooking:"b-cooking",ready:"b-ready",done:"b-done",raincheck:"b-rain",cancelled:"b-cancelled"}[s]||"b-done");
 
   async function cancelOrder(id){
-    setOrders(p=>p.map(o=>o.id===id?{...o,status:"cancelled"}:o));
     try{ await upStatus(id,"cancelled"); }catch(e){ console.error(e); }
     setCancelModal(null); setCancelConfirm(false);
     showToast("Order cancelled — please issue refund 💸");
