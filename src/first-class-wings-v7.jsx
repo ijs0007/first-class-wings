@@ -1461,7 +1461,6 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
   const [sortBy,setSortBy]                   = useState("newest");
   const [collapsedOrders,setCollapsedOrders] = useState(new Set());
   const toggleCollapse = (id)=>setCollapsedOrders(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
-  const allOrders = [...getSortedOrders(), ...orders.filter(o=>o.status==="done")];
   const completedCount = orders.filter(o=>o.status==="done").length;
 
   function getSortedOrders(){
