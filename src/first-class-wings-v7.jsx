@@ -1459,7 +1459,9 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
   const [attempts,setAttempts]               = useState(0);
   const [lockedUntil,setLockedUntil]         = useState(null);
   const [sortBy,setSortBy]                   = useState("newest");
-  const [expandedOrders,setExpandedOrders]   = useState(new Set());
+  const [collapsedOrders,setCollapsedOrders] = useState(new Set());
+  const toggleCollapse = (id)=>setCollapsedOrders(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
+  const allOrders = [...getSortedOrders(), ...orders.filter(o=>o.status==="done")];
   const completedCount = orders.filter(o=>o.status==="done").length;
 
   function getSortedOrders(){
@@ -1602,9 +1604,9 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
             ?<div className="empty"><div className="empty-i">🍗</div><div className="empty-m">No orders yet</div></div>
             :<div className="orders-list">
 
-              {/* SORT CONTROLS */}
-              <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap"}}>
-                <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#444",letterSpacing:1,textTransform:"uppercase",alignSelf:"center",marginRight:2}}>Sort:</span>
+              {/* SORT + EXPAND ALL CONTROLS */}
+              <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#444",letterSpacing:1,textTransform:"uppercase",marginRight:2}}>Sort:</span>
                 {[["newest","🕐 Newest"],["pickup","📅 Pickup Time"],["status","🔥 Status"]].map(([val,label])=>(
                   <button key={val} onClick={()=>setSortBy(val)} style={{
                     background:sortBy===val?"rgba(245,166,35,.15)":"none",
@@ -1614,27 +1616,39 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                     padding:"4px 9px",borderRadius:4,cursor:"pointer",textTransform:"uppercase"
                   }}>{label}</button>
                 ))}
+                <div style={{marginLeft:"auto",display:"flex",gap:4}}>
+                  <button onClick={()=>setCollapsedOrders(new Set())} style={{
+                    background:"none",border:"1px solid #2a2a2a",color:"#444",
+                    fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:.5,
+                    padding:"4px 8px",borderRadius:4,cursor:"pointer"
+                  }}>▼ Expand All</button>
+                  <button onClick={()=>setCollapsedOrders(new Set(orders.map(o=>o.id)))} style={{
+                    background:"none",border:"1px solid #2a2a2a",color:"#444",
+                    fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:.5,
+                    padding:"4px 8px",borderRadius:4,cursor:"pointer"
+                  }}>▲ Collapse All</button>
+                </div>
               </div>
 
               {/* ACTIVE ORDERS */}
               {getSortedOrders().map(o=>{
                 const isNew = o.status==="new";
-                const isExpanded = expandedOrders.has(o.id);
-                const toggleExpand = ()=>setExpandedOrders(p=>{const n=new Set(p);n.has(o.id)?n.delete(o.id):n.add(o.id);return n;});
+                const isCollapsed = collapsedOrders.has(o.id);
 
-                // COLLAPSED NEW ORDER
-                if(isNew&&!isExpanded) return(
-                  <div key={o.id} className="ocard status-new" style={{position:"relative",cursor:"pointer"}} onClick={toggleExpand}>
+                if(isCollapsed) return(
+                  <div key={o.id} className={`ocard status-${o.status}`} style={{cursor:"pointer"}} onClick={()=>toggleCollapse(o.id)}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                       <div>
-                        <div className="onum-chip" style={{marginBottom:3}}>{o.orderNum}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                          <div className="onum-chip">{o.orderNum}</div>
+                          {isNew&&<span style={{background:"rgba(192,57,43,.2)",border:"1px solid rgba(192,57,43,.4)",color:"#e88",fontFamily:"'Oswald',sans-serif",fontSize:8,letterSpacing:1,padding:"1px 6px",borderRadius:3,textTransform:"uppercase"}}>⚠ Unconfirmed</span>}
+                        </div>
                         <div className="oname" style={{fontSize:13}}>{o.firstName} {o.lastName}</div>
                         <div style={{fontSize:10,color:"var(--gr)",marginTop:2}}>{o.cartItems?.map(i=>i.combo.label).join(", ")} · <span style={{color:"var(--or)"}}>${o.total}</span></div>
                       </div>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-                        <button onClick={e=>{e.stopPropagation();if(window.confirm("Delete this order?")) upStatus(o.id,"done");}}
-                          style={{background:"none",border:"1px solid #333",color:"#555",width:22,height:22,borderRadius:"50%",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>✕</button>
-                        <span className="obadge b-new" style={{fontSize:8}}>🔥 New — tap to expand</span>
+                        <span className={`obadge ${badgeClass(o.status)}`}>{statusLabel(o.status)}</span>
+                        <span style={{color:"#333",fontSize:10}}>▼</span>
                       </div>
                     </div>
                   </div>
@@ -1642,11 +1656,9 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
 
                 return(
                 <div key={o.id} className={`ocard status-${o.status}`} style={{position:"relative"}}>
-                  {isNew&&(
-                    <button onClick={toggleExpand} style={{position:"absolute",top:8,right:8,background:"none",border:"1px solid #333",color:"#555",fontFamily:"'Oswald',sans-serif",fontSize:8,letterSpacing:.5,padding:"2px 7px",borderRadius:3,cursor:"pointer",zIndex:2}}>
-                      ▲ Collapse
-                    </button>
-                  )}
+                  <button onClick={()=>toggleCollapse(o.id)} style={{position:"absolute",top:8,right:8,background:"none",border:"1px solid #333",color:"#555",fontFamily:"'Oswald',sans-serif",fontSize:8,letterSpacing:.5,padding:"2px 7px",borderRadius:3,cursor:"pointer",zIndex:2}}>
+                    ▲
+                  </button>
                   {/* Checkbox for done orders when clear mode active */}
                   {showClearToggle&&o.status==="done"&&(
                     <div onClick={()=>setClearSelected(p=>{const n=new Set(p);n.has(o.id)?n.delete(o.id):n.add(o.id);return n;})}
@@ -1731,23 +1743,42 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                     ✅ Completed — {orders.filter(o=>o.status==="done").length} order{orders.filter(o=>o.status==="done").length!==1?"s":""}
                   </div>
                   {orders.filter(o=>o.status==="done").map(o=>(
-                    <div key={o.id} className="ocard status-done" style={{marginBottom:6,position:"relative"}}>
-                      {showClearToggle&&(
-                        <div onClick={()=>setClearSelected(p=>{const n=new Set(p);n.has(o.id)?n.delete(o.id):n.add(o.id);return n;})}
-                          style={{position:"absolute",top:10,right:10,width:22,height:22,borderRadius:5,
-                            border:`2px solid ${clearSelected.has(o.id)?"var(--rd)":"#333"}`,
-                            background:clearSelected.has(o.id)?"var(--rd)":"transparent",
-                            display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2
-                          }}>
-                          {clearSelected.has(o.id)&&<span style={{color:"#fff",fontSize:13,fontWeight:700}}>✓</span>}
+                    <div key={o.id} className="ocard status-done" style={{marginBottom:6,position:"relative",cursor:"pointer"}}
+                      onClick={()=>toggleCollapse(o.id)}>
+                      {collapsedOrders.has(o.id)?(
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                          <div>
+                            <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:2}}>
+                              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#333"}}>{o.orderNum}</div>
+                            </div>
+                            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#333"}}>{o.firstName} {o.lastName} · ${o.total}</div>
+                          </div>
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                            <span className="obadge b-done">✅ Done</span>
+                            <span style={{color:"#333",fontSize:10}}>▼</span>
+                          </div>
                         </div>
+                      ):(
+                        <>
+                          {showClearToggle&&(
+                            <div onClick={e=>{e.stopPropagation();setClearSelected(p=>{const n=new Set(p);n.has(o.id)?n.delete(o.id):n.add(o.id);return n;})}}
+                              style={{position:"absolute",top:10,right:10,width:22,height:22,borderRadius:5,
+                                border:`2px solid ${clearSelected.has(o.id)?"var(--rd)":"#333"}`,
+                                background:clearSelected.has(o.id)?"var(--rd)":"transparent",
+                                display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2
+                              }}>
+                              {clearSelected.has(o.id)&&<span style={{color:"#fff",fontSize:13,fontWeight:700}}>✓</span>}
+                            </div>
+                          )}
+                          <button onClick={e=>{e.stopPropagation();toggleCollapse(o.id);}} style={{position:"absolute",top:8,right:showClearToggle?40:8,background:"none",border:"1px solid #333",color:"#555",fontFamily:"'Oswald',sans-serif",fontSize:8,padding:"2px 7px",borderRadius:3,cursor:"pointer",zIndex:2}}>▲</button>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#333"}}>{o.orderNum}</div>
+                            <span className="obadge b-done">✅ Done</span>
+                          </div>
+                          <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#333"}}>{o.firstName} {o.lastName} · ${o.total}</div>
+                          <div style={{fontSize:10,color:"#2a2a2a",marginTop:2}}>{o.cartItems?.map(i=>i.combo.label).join(", ")}</div>
+                        </>
                       )}
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
-                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#333"}}>{o.orderNum}</div>
-                        <span className="obadge b-done">✅ Done</span>
-                      </div>
-                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#333"}}>{o.firstName} {o.lastName} · ${o.total}</div>
-                      <div style={{fontSize:10,color:"#2a2a2a",marginTop:2}}>{o.cartItems?.map(i=>i.combo.label).join(", ")}</div>
                     </div>
                   ))}
                 </div>
