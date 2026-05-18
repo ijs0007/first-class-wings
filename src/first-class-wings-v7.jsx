@@ -620,12 +620,17 @@ export default function App(){
 
   async function clearCompleted(ids){
     if(ids&&ids.length>0){
+      // Archive selected orders
       setOrders(p=>p.filter(o=>!ids.includes(o.id)));
+      for(const id of ids){
+        try{ await sb.patch("orders",`?id=eq.${id}`,{status:"archived"}); }catch(e){ console.error(e); }
+      }
     } else {
+      // Archive all done orders
       setOrders(p=>p.filter(o=>o.status!=="done"));
-      try{ await sb.delete("orders","?status=eq.done"); }catch(e){ console.error(e); }
+      try{ await sb.patch("orders","?status=eq.done",{status:"archived"}); }catch(e){ console.error(e); }
     }
-    showToast("Cleared!");
+    showToast("Orders archived! 📦");
   }
 
   const loginOwner=()=>{ if(ownerPin===settings.ownerPin){setOwnerUnlocked(true);showToast("Welcome back! 👑");}else showToast("Wrong PIN!"); };
@@ -1464,7 +1469,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
   const completedCount = orders.filter(o=>o.status==="done").length;
 
   function getSortedOrders(){
-    const active = orders.filter(o=>o.status!=="done"&&o.status!=="raincheck");
+    const active = orders.filter(o=>o.status!=="done"&&o.status!=="raincheck"&&o.status!=="archived");
     switch(sortBy){
       case "pickup": return [...active].sort((a,b)=>{
         const ta=a.orderTime?.time||"zzz";
@@ -1739,8 +1744,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
               {orders.filter(o=>o.status==="done").length>0&&(
                 <div style={{marginTop:14}}>
                   <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:2,color:"#2a2a2a",textTransform:"uppercase",marginBottom:6,paddingLeft:2}}>
-                    ✅ Completed — {orders.filter(o=>o.status==="done").length} order{orders.filter(o=>o.status==="done").length!==1?"s":""}
-                  </div>
+                    ✅ Completed — {orders.filter(o=>o.status==="done").length} order{orders.filter(o=>o.status==="done").length!==1?"s":""}</div>
                   {orders.filter(o=>o.status==="done").map(o=>(
                     <div key={o.id} className="ocard status-done" style={{marginBottom:6,position:"relative",cursor:"pointer"}}
                       onClick={()=>toggleCollapse(o.id)}>
@@ -1799,7 +1803,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                     Tap checkboxes on the Done orders above, then choose an option below.
                   </p>
                 <div className="clear-warn" style={{marginBottom:10}}>
-                  ⚠️ <strong>Heads up!</strong> You're about to permanently delete completed orders. This cannot be undone. Check the orders above you want to remove, then choose below.
+                  ⚠️ <strong>Heads up!</strong> Cleared orders will be archived (not deleted) so your analytics stay accurate. Check the orders you want to archive, then choose below.
                 </div>
                   <div style={{display:"flex",gap:8}}>
                     <button className="btn btn-ghost" style={{flex:1,fontSize:11}}
@@ -1810,7 +1814,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                       disabled={clearSelected.size===0}
                       onClick={async()=>{
                         const ids=[...clearSelected];
-                        for(const id of ids){ try{ await sb.delete("orders",`?id=eq.${id}`); }catch(e){} }
+                        for(const id of ids){ try{ await sb.patch("orders",`?id=eq.${id}`,{status:"archived"}); }catch(e){} }
                         clearCompleted(ids);
                         setShowClearToggle(false); setClearSelected(new Set());
                         showToast(`🗑 Cleared ${ids.length} order${ids.length!==1?"s":""}`);
@@ -1970,7 +1974,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
 
       {/* ANALYTICS TAB */}
       {tab==="analytics"&&(()=>{
-        const allDone = orders.filter(o=>["confirmed","ready","done","raincheck"].includes(o.status));
+        const allDone = orders.filter(o=>["confirmed","ready","done","raincheck","archived"].includes(o.status));
         const today = new Date();
         const todayOrders = allDone.filter(o=>o.date&&o.date.includes(today.toLocaleDateString("en-US",{month:"short",day:"numeric"})));
         const totalEarned = allDone.reduce((s,o)=>s+(o.total||0),0);
@@ -1980,7 +1984,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
 
         // Flavor breakdown
         const flavorCounts={};
-        orders.forEach(o=>o.cartItems?.forEach(i=>{ const f=i.flavorLabel||"Unknown"; flavorCounts[f]=(flavorCounts[f]||0)+i.qty; }));
+        orders.filter(o=>o.status!=="new").forEach(o=>o.cartItems?.forEach(i=>{ const f=i.flavorLabel||"Unknown"; flavorCounts[f]=(flavorCounts[f]||0)+i.qty; }));
         const topFlavors=Object.entries(flavorCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
         const maxFlavor=topFlavors[0]?.[1]||1;
 
