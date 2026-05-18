@@ -59,8 +59,10 @@ const MONTH_NAMES= ["January","February","March","April","May","June","July","Au
 // ── helpers ──────────────────────────────────────────────────────────────────
 async function getNextOrderNum(){
   try{
+    // One-time reset: if stored value is from old random system (>3 digits or NaN), start fresh
     const result = await window.storage.get("fcw_order_counter");
-    const current = result ? parseInt(result.value,10) : 0;
+    const stored = result ? result.value : null;
+    const current = (stored && !isNaN(parseInt(stored,10)) && parseInt(stored,10)<=999) ? parseInt(stored,10) : 0;
     const next = (current>=999) ? 1 : current+1;
     await window.storage.set("fcw_order_counter", String(next));
     return "FCW-"+String(next).padStart(3,"0");
@@ -75,7 +77,7 @@ function dateKey(y,m,d){ return `${y}-${String(m+1).padStart(2,"0")}-${String(d)
 function buildPayNote(o){ return `${o.orderNum} ${o.firstName} $${o.total}`; }
 function formatPhone(raw){ const d=raw.replace(/\D/g,"").slice(0,10); if(d.length<=3) return d; if(d.length<=6) return `(${d.slice(0,3)}) ${d.slice(3)}`; return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; }
 function cashAppLink(tag,amt){ return `https://cash.app/${tag.replace("$","")}/${amt}`; }
-function venmoLink(user,amt,note){ return `https://venmo.com/${user}?txn=pay&amount=${amt}&note=${encodeURIComponent(note)}`; }
+function venmoLink(user,amt,note){ return `https://venmo.com/${user}?txn=pay&amount=${amt}&note=${encodeURIComponent(note).replace(/\+/g,"%20")}`; }
 
 function generateTimeSlots(open,close,slotMins){
   const slots=[];
@@ -638,9 +640,10 @@ export default function App(){
         try{ await sb.patch("orders",`?id=eq.${id}`,{status:"archived"}); }catch(e){ console.error(e); }
       }
     } else {
-      // Archive all done orders — keep in state as archived
-      setOrders(p=>p.map(o=>o.status==="done"?{...o,status:"archived"}:o));
+      // Archive all done AND cancelled orders
+      setOrders(p=>p.map(o=>(o.status==="done"||o.status==="cancelled")?{...o,status:"archived"}:o));
       try{ await sb.patch("orders","?status=eq.done",{status:"archived"}); }catch(e){ console.error(e); }
+      try{ await sb.patch("orders","?status=eq.cancelled",{status:"archived"}); }catch(e){ console.error(e); }
     }
     showToast("Orders archived! 📦");
   }
@@ -1561,7 +1564,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
   const [sortBy,setSortBy]                   = useState("newest");
   const [collapsedOrders,setCollapsedOrders] = useState(new Set());
   const toggleCollapse = (id)=>setCollapsedOrders(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
-  const completedCount = orders.filter(o=>o.status==="done").length;
+  const completedCount = orders.filter(o=>o.status==="done"||o.status==="cancelled").length;
 
   function getSortedOrders(){
     const active = orders.filter(o=>o.status!=="done"&&o.status!=="raincheck"&&o.status!=="archived"&&o.status!=="cancelled");
@@ -1765,7 +1768,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                     ▲
                   </button>
                   {/* Checkbox for done orders when clear mode active */}
-                  {showClearToggle&&o.status==="done"&&(
+                  {showClearToggle&&(o.status==="done"||o.status==="cancelled")&&(
                     <div onClick={()=>setClearSelected(p=>{const n=new Set(p);n.has(o.id)?n.delete(o.id):n.add(o.id);return n;})}
                       style={{position:"absolute",top:10,right:10,width:22,height:22,borderRadius:5,
                         border:`2px solid ${clearSelected.has(o.id)?"var(--rd)":"#444"}`,
