@@ -859,16 +859,27 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             </a>
           </div>
 
-          <div className="screenshot-note">📸 <strong>Screenshot the Order Summary</strong> below as proof of your order number and details</div>
+          <div style={{position:"relative",marginBottom:8}}>
+            {/* Corner bracket marks */}
+            <div style={{position:"absolute",top:-6,left:-6,width:16,height:16,borderTop:"2px solid var(--or)",borderLeft:"2px solid var(--or)",borderRadius:"2px 0 0 0",zIndex:1}}/>
+            <div style={{position:"absolute",top:-6,right:-6,width:16,height:16,borderTop:"2px solid var(--or)",borderRight:"2px solid var(--or)",borderRadius:"0 2px 0 0",zIndex:1}}/>
+            <div style={{position:"absolute",bottom:-6,left:-6,width:16,height:16,borderBottom:"2px solid var(--or)",borderLeft:"2px solid var(--or)",borderRadius:"0 0 0 2px",zIndex:1}}/>
+            <div style={{position:"absolute",bottom:-6,right:-6,width:16,height:16,borderBottom:"2px solid var(--or)",borderRight:"2px solid var(--or)",borderRadius:"0 0 2px 0",zIndex:1}}/>
 
-          {/* 4 — ORDER SUMMARY */}
-          <div className="rs-card">
-            <div className="rs-title">Order Summary</div>
-            <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
-            {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
-            {lastOrder.orderTime?.day&&<div className="rs-row"><span className="rs-lbl">Requested</span><span className="rs-val">{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>}
-            {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
-            <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
+            {/* ORDER SUMMARY */}
+            <div className="rs-card">
+              <div className="rs-title">Order Summary</div>
+              <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
+              {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
+              {lastOrder.orderTime?.day&&<div className="rs-row"><span className="rs-lbl">Requested</span><span className="rs-val">{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>}
+              {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
+              <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
+            </div>
+          </div>
+
+          <div style={{textAlign:"center",padding:"6px 0 10px"}}>
+            <div style={{color:"var(--or)",fontFamily:"'Oswald',sans-serif",fontSize:10,letterSpacing:1,textTransform:"uppercase"}}>📸 Screenshot this box</div>
+            <div style={{color:"#444",fontSize:9,marginTop:3,letterSpacing:.3}}>Proof of your order number & details</div>
           </div>
 
           <div className="info-banner">
