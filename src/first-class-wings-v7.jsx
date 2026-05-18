@@ -57,11 +57,22 @@ const DAY_LABELS = { monday:"Mon",tuesday:"Tue",wednesday:"Wed",thursday:"Thu",f
 const DAY_FULL   = { monday:"Monday",tuesday:"Tuesday",wednesday:"Wednesday",thursday:"Thursday",friday:"Friday",saturday:"Saturday",sunday:"Sunday" };
 const MONTH_NAMES= ["January","February","March","April","May","June","July","August","September","October","November","December"];
 // ── helpers ──────────────────────────────────────────────────────────────────
-function genOrderNum(){ const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s="FCW-"; for(let i=0;i<5;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
+async function getNextOrderNum(){
+  try{
+    const result = await window.storage.get("fcw_order_counter");
+    const current = result ? parseInt(result.value,10) : 0;
+    const next = (current>=999) ? 1 : current+1;
+    await window.storage.set("fcw_order_counter", String(next));
+    return "FCW-"+String(next).padStart(3,"0");
+  }catch{
+    const n=Math.floor(Math.random()*999)+1;
+    return "FCW-"+String(n).padStart(3,"0");
+  }
+}
 function fmtTime(d){ return d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}); }
 function fmtDate(d){ return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}); }
 function dateKey(y,m,d){ return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
-function buildPayNote(o){ return `Order ${o.orderNum}\n${o.lastName}, ${o.firstName} | ${o.phone}\nPlaced: ${o.time}\nTotal: $${o.total}`; }
+function buildPayNote(o){ return `${o.orderNum} ${o.firstName} $${o.total}`; }
 function formatPhone(raw){ const d=raw.replace(/\D/g,"").slice(0,10); if(d.length<=3) return d; if(d.length<=6) return `(${d.slice(0,3)}) ${d.slice(3)}`; return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; }
 function cashAppLink(tag,amt){ return `https://cash.app/${tag.replace("$","")}/${amt}`; }
 function venmoLink(user,amt,note){ return `https://venmo.com/${user}?txn=pay&amount=${amt}&note=${encodeURIComponent(note)}`; }
@@ -398,6 +409,7 @@ select.finput{appearance:none}
 .b-ready{background:rgba(39,174,96,.16);color:var(--ok)}
 .b-done{background:rgba(255,255,255,.04);color:#3a3a3a}
 .b-rain{background:rgba(41,128,185,.12);color:#78b8d8}
+.b-cancelled{background:rgba(120,0,0,.1);color:#664444}
 .ocard.status-cooking{border-left:4px solid var(--rd)}
 .odet{font-size:10px;color:var(--gr);margin-bottom:2px}
 .odet strong{color:var(--wh)}
@@ -789,6 +801,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
   const [removing,setRemoving] = useState(null);
   const [copied,setCopied]     = useState(false);
   const [submitModal,setSubmitModal] = useState(false);
+  const [payModal,setPayModal] = useState(null); // null | "cashapp" | "zelle"
 
   const b=building; const setB=setBuilding;
   const step=buildStep; const setStep=setBuildStep;
@@ -819,9 +832,9 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     setErrors(e); return Object.keys(e).length===0;
   }
 
-  function submitOrder(){
+  async function submitOrder(){
     if(!validate()) return;
-    const now=new Date(); const orderNum=genOrderNum(); const time=fmtTime(now); const date=fmtDate(now);
+    const now=new Date(); const orderNum=await getNextOrderNum(); const time=fmtTime(now); const date=fmtDate(now);
     const order={
       cartItems:cart, total:cartTotal, orderNum, time, date, ...form, pay:"cashapp",
       specDay:orderTime?.isSpecial||false, reqDay:orderTime?.day||"",
@@ -882,26 +895,106 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             </div>
             <div style={{flex:1,paddingBottom:10}}>
               <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Open pay app · paste note · send payment</div>
-              <div style={{display:"flex",gap:6}}>
-                <a href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer"
-                  onClick={()=>setTimeout(()=>copyNote(payNote),400)}
-                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"rgba(0,210,75,.06)",border:"1px solid rgba(0,210,75,.2)",borderRadius:7,padding:"8px 4px",textDecoration:"none"}}>
-                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#4cd87a",letterSpacing:.5}}>Cash App</span>
-                  <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#4cd87a"}}>${lastOrder.total}</span>
-                </a>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+
+                {/* VENMO — PREFERRED, opens directly */}
                 <a href={venmoLink(settings.venmo,lastOrder.total,payNote)} target="_blank" rel="noreferrer"
-                  onClick={()=>setTimeout(()=>copyNote(payNote),400)}
-                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"rgba(0,140,255,.06)",border:"1px solid rgba(0,140,255,.2)",borderRadius:7,padding:"8px 4px",textDecoration:"none"}}>
-                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#78b8d8",letterSpacing:.5}}>Venmo</span>
-                  <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#78b8d8"}}>${lastOrder.total}</span>
+                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(54,85,178,.14)",border:"1.5px solid rgba(54,85,178,.35)",borderRadius:9,padding:"11px 13px",textDecoration:"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:9}}>
+                    <span style={{fontSize:18}}>💜</span>
+                    <div>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:13,color:"#fff",letterSpacing:.5}}>Venmo <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#5ce65c",background:"rgba(92,230,92,.1)",border:"1px solid rgba(92,230,92,.25)",borderRadius:3,padding:"1px 5px",letterSpacing:1,textTransform:"uppercase",marginLeft:4}}>Preferred</span></div>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#888",letterSpacing:.3}}>@{settings.venmo} · ${lastOrder.total}</div>
+                    </div>
+                  </div>
+                  <span style={{color:"#444",fontSize:15}}>›</span>
                 </a>
-                <a href="https://enroll.zellepay.com/" target="_blank" rel="noreferrer"
-                  onClick={()=>setTimeout(()=>copyNote(payNote),400)}
-                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"rgba(107,45,139,.06)",border:"1px solid rgba(107,45,139,.2)",borderRadius:7,padding:"8px 4px",textDecoration:"none"}}>
-                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#b07ad8",letterSpacing:.5}}>Zelle</span>
-                  <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#b07ad8"}}>${lastOrder.total}</span>
-                </a>
+
+                {/* CASH APP — shows popup warning about manual FOR field */}
+                <button onClick={()=>setPayModal("cashapp")}
+                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(0,210,100,.07)",border:"1.5px solid rgba(0,210,100,.22)",borderRadius:9,padding:"11px 13px",cursor:"pointer",width:"100%"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:9}}>
+                    <span style={{fontSize:18}}>💚</span>
+                    <div style={{textAlign:"left"}}>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:13,color:"#fff",letterSpacing:.5}}>Cash App</div>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#888",letterSpacing:.3}}>{settings.cashapp} · ${lastOrder.total}</div>
+                    </div>
+                  </div>
+                  <span style={{color:"#444",fontSize:15}}>›</span>
+                </button>
+
+                {/* ZELLE — shows popup warning about bank-dependent paste */}
+                <button onClick={()=>setPayModal("zelle")}
+                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(106,62,182,.08)",border:"1.5px solid rgba(106,62,182,.25)",borderRadius:9,padding:"11px 13px",cursor:"pointer",width:"100%"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:9}}>
+                    <span style={{fontSize:18}}>📱</span>
+                    <div style={{textAlign:"left"}}>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:13,color:"#fff",letterSpacing:.5}}>Zelle</div>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#888",letterSpacing:.3}}>{settings.zelle} · ${lastOrder.total}</div>
+                    </div>
+                  </div>
+                  <span style={{color:"#444",fontSize:15}}>›</span>
+                </button>
+
               </div>
+
+              {/* CASH APP MODAL */}
+              {payModal==="cashapp"&&(
+                <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+                  <div style={{background:"#181818",border:"1.5px solid rgba(245,166,35,.3)",borderRadius:13,padding:22,maxWidth:320,width:"100%"}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"var(--or)",marginBottom:8,letterSpacing:1}}>📋 Cash App Note</div>
+                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#ccc",lineHeight:1.65,marginBottom:12}}>
+                      Cash App requires you to <strong style={{color:"#fff"}}>manually type</strong> in the <strong style={{color:"var(--or)"}}>For</strong> field — pasting isn't allowed there.<br/><br/>
+                      Your order code is short and easy to type:
+                    </div>
+                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,color:"var(--or)",textAlign:"center",margin:"10px 0",padding:"10px",background:"rgba(245,166,35,.07)",borderRadius:8,border:"1px solid rgba(245,166,35,.18)",letterSpacing:3}}>
+                      {lastOrder.orderNum}
+                    </div>
+                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#666",textAlign:"center",marginBottom:16}}>
+                      Type this in the <strong style={{color:"var(--or)"}}>For</strong> field when you pay.
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <a href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer"
+                        style={{display:"block",textAlign:"center",padding:"13px",background:"var(--or)",color:"#000",borderRadius:9,fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:1,textDecoration:"none"}}
+                        onClick={()=>setPayModal(null)}>
+                        Got It — Open Cash App
+                      </a>
+                      <button onClick={()=>setPayModal(null)} style={{padding:"11px",background:"transparent",border:"1px solid #2a2a2a",borderRadius:9,color:"#666",fontFamily:"'Oswald',sans-serif",fontSize:12,cursor:"pointer"}}>
+                        Go Back
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ZELLE MODAL */}
+              {payModal==="zelle"&&(
+                <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+                  <div style={{background:"#181818",border:"1.5px solid rgba(245,166,35,.3)",borderRadius:13,padding:22,maxWidth:320,width:"100%"}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"var(--or)",marginBottom:8,letterSpacing:1}}>📋 Zelle Note</div>
+                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#ccc",lineHeight:1.65,marginBottom:12}}>
+                      Zelle's memo field <strong style={{color:"#fff"}}>may require manual typing</strong> depending on your bank — some banks allow paste, others don't.<br/><br/>
+                      Your order code is:
+                    </div>
+                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,color:"var(--or)",textAlign:"center",margin:"10px 0",padding:"10px",background:"rgba(245,166,35,.07)",borderRadius:8,border:"1px solid rgba(245,166,35,.18)",letterSpacing:3}}>
+                      {lastOrder.orderNum}
+                    </div>
+                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#666",textAlign:"center",marginBottom:16}}>
+                      Enter this in the <strong style={{color:"var(--or)"}}>memo/note</strong> field when you pay.
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <a href="https://zellepay.com/" target="_blank" rel="noreferrer"
+                        style={{display:"block",textAlign:"center",padding:"13px",background:"var(--or)",color:"#000",borderRadius:9,fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:1,textDecoration:"none"}}
+                        onClick={()=>setPayModal(null)}>
+                        Got It — Open Zelle
+                      </a>
+                      <button onClick={()=>setPayModal(null)} style={{padding:"11px",background:"transparent",border:"1px solid #2a2a2a",borderRadius:9,color:"#666",fontFamily:"'Oswald',sans-serif",fontSize:12,cursor:"pointer"}}>
+                        Go Back
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1461,6 +1554,8 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
   const [clearSelected,setClearSelected]     = useState(new Set());
   const [unconfirmModal,setUnconfirmModal]   = useState(null);
   const [raincheckModal,setRaincheckModal]   = useState(null);
+  const [cancelModal,setCancelModal]         = useState(null);
+  const [cancelConfirm,setCancelConfirm]     = useState(false);
   const [attempts,setAttempts]               = useState(0);
   const [lockedUntil,setLockedUntil]         = useState(null);
   const [sortBy,setSortBy]                   = useState("newest");
@@ -1469,7 +1564,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
   const completedCount = orders.filter(o=>o.status==="done").length;
 
   function getSortedOrders(){
-    const active = orders.filter(o=>o.status!=="done"&&o.status!=="raincheck"&&o.status!=="archived");
+    const active = orders.filter(o=>o.status!=="done"&&o.status!=="raincheck"&&o.status!=="archived"&&o.status!=="cancelled");
     switch(sortBy){
       case "pickup": return [...active].sort((a,b)=>{
         const ta=a.orderTime?.time||"zzz";
@@ -1549,8 +1644,15 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
     </div>
   );
 
-  const statusLabel=(s)=>({new:"🔥 New",confirmed:"✅ Confirmed",cooking:"🍳 Cooking",ready:"🍗 Ready",done:"✅ Done",raincheck:"🌧️ Rain Check"}[s]||s);
-  const badgeClass=(s)=>({new:"b-new",confirmed:"b-confirmed",cooking:"b-cooking",ready:"b-ready",done:"b-done",raincheck:"b-rain"}[s]||"b-done");
+  const statusLabel=(s)=>({new:"🔥 New",confirmed:"✅ Confirmed",cooking:"🍳 Cooking",ready:"🍗 Ready",done:"✅ Done",raincheck:"🌧️ Rain Check",cancelled:"🚫 Cancelled"}[s]||s);
+  const badgeClass=(s)=>({new:"b-new",confirmed:"b-confirmed",cooking:"b-cooking",ready:"b-ready",done:"b-done",raincheck:"b-rain",cancelled:"b-cancelled"}[s]||"b-done");
+
+  async function cancelOrder(id){
+    setOrders(p=>p.map(o=>o.id===id?{...o,status:"cancelled"}:o));
+    try{ await upStatus(id,"cancelled"); }catch(e){ console.error(e); }
+    setCancelModal(null); setCancelConfirm(false);
+    showToast("Order cancelled — please issue refund 💸");
+  }
   const prevMonth=()=>setCalMonth(p=>p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1});
   const nextMonth=()=>setCalMonth(p=>p.m===11?{y:p.y+1,m:0}:{y:p.y,m:p.m+1});
 
@@ -1736,6 +1838,13 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                       <button className="abtn" style={{background:"rgba(41,128,185,.08)",border:"1px solid rgba(41,128,185,.25)",color:"#78b8d8",marginTop:4,width:"100%",justifyContent:"center"}}
                         onClick={()=>setRaincheckModal(o)}>🌧️ Rain Check Order</button>
                     )}
+                    {/* CANCEL — last resort, tucked at bottom */}
+                    {["new","confirmed","cooking","ready","raincheck"].includes(o.status)&&(
+                      <button className="abtn" style={{background:"transparent",border:"1px solid rgba(120,0,0,.2)",color:"#664444",marginTop:6,width:"100%",justifyContent:"center",fontSize:10,letterSpacing:.3,opacity:.7}}
+                        onClick={()=>{setCancelModal(o);setCancelConfirm(false);}}>
+                        🚫 Cancel Order
+                      </button>
+                    )}
                   </div>
                 </div>
               )})}
@@ -1786,10 +1895,24 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                   ))}
                 </div>
               )}
-            </div>
-          }
-
-          {/* CLEAR ORDERS CONTROLS */}
+              {/* CANCELLED ORDERS — muted, at very bottom */}
+              {orders.filter(o=>o.status==="cancelled").length>0&&(
+                <div style={{marginTop:18,paddingTop:14,borderTop:"1px solid rgba(120,0,0,.18)"}}>
+                  <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#664444",letterSpacing:2,textTransform:"uppercase",textAlign:"center",marginBottom:10}}>
+                    🚫 Cancelled · {orders.filter(o=>o.status==="cancelled").length} order{orders.filter(o=>o.status==="cancelled").length!==1?"s":""}
+                  </div>
+                  {orders.filter(o=>o.status==="cancelled").map(o=>(
+                    <div key={o.id} style={{background:"rgba(120,0,0,.04)",border:"1px solid rgba(120,0,0,.12)",borderRadius:7,padding:"9px 11px",marginBottom:7,opacity:.55}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#664444"}}>{o.orderNum}</div>
+                        <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#664444",background:"rgba(120,0,0,.1)",border:"1px solid rgba(120,0,0,.2)",borderRadius:4,padding:"2px 5px",letterSpacing:.5}}>CANCELLED</span>
+                      </div>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#554444"}}>{o.firstName} {o.lastName} · ${o.total}</div>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#443333",marginTop:2}}>📱 {o.phone} · {o.time}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
           {completedCount>0&&(
             <div style={{marginTop:14,padding:"0 2px"}}>
               {!showClearToggle?(
@@ -2218,6 +2341,53 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
               </a>
               <button className="btn btn-ghost" onClick={()=>setRaincheckModal(null)}>Cancel</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL MODAL — two-step, refund reminder */}
+      {cancelModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.92)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+          <div style={{background:"#160000",border:"1.5px solid rgba(140,0,0,.5)",borderRadius:13,padding:22,maxWidth:320,width:"100%"}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"#cc3333",marginBottom:8,letterSpacing:1}}>🚫 Cancel Order?</div>
+
+            {!cancelConfirm ? (
+              <>
+                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#bbb",lineHeight:1.7,marginBottom:16}}>
+                  You are about to cancel <strong style={{color:"#fff"}}>{cancelModal.orderNum}</strong> for <strong style={{color:"#fff"}}>{cancelModal.firstName}</strong>.<br/><br/>
+                  <strong style={{color:"#ff7777"}}>⚠️ This customer already paid ${cancelModal.total}.</strong><br/><br/>
+                  Cancelling does <strong style={{color:"#fff"}}>NOT</strong> automatically refund them. You must manually return their payment before cancelling.
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <button onClick={()=>setCancelConfirm(true)}
+                    style={{padding:"12px",background:"rgba(140,0,0,.18)",border:"1.5px solid rgba(140,0,0,.45)",borderRadius:9,color:"#ff7777",fontFamily:"'Oswald',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:.4}}>
+                    I Understand — Continue
+                  </button>
+                  <button onClick={()=>setCancelModal(null)}
+                    style={{padding:"10px",background:"transparent",border:"1px solid #2a2a2a",borderRadius:9,color:"#666",fontFamily:"'Oswald',sans-serif",fontSize:12,cursor:"pointer"}}>
+                    ← Go Back
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#bbb",lineHeight:1.7,marginBottom:16}}>
+                  <strong style={{color:"#ff7777",fontSize:13}}>Final confirmation.</strong><br/><br/>
+                  Order <strong style={{color:"#fff"}}>{cancelModal.orderNum}</strong> will be permanently marked <strong style={{color:"#ff5555"}}>CANCELLED</strong>.<br/><br/>
+                  📲 Have you already contacted <strong style={{color:"#fff"}}>{cancelModal.firstName}</strong> at <strong style={{color:"#fff"}}>{cancelModal.phone}</strong> and arranged their refund of <strong style={{color:"var(--or)"}}>${cancelModal.total}</strong>?
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <button onClick={()=>cancelOrder(cancelModal.id)}
+                    style={{padding:"12px",background:"rgba(140,0,0,.3)",border:"1.5px solid rgba(140,0,0,.65)",borderRadius:9,color:"#ff4444",fontFamily:"'Bebas Neue',sans-serif",fontSize:16,cursor:"pointer",letterSpacing:1}}>
+                    🚫 Confirm Cancellation
+                  </button>
+                  <button onClick={()=>setCancelConfirm(false)}
+                    style={{padding:"10px",background:"transparent",border:"1px solid #2a2a2a",borderRadius:9,color:"#666",fontFamily:"'Oswald',sans-serif",fontSize:12,cursor:"pointer"}}>
+                    ← Go Back
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
