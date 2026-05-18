@@ -966,7 +966,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
                       </div>
                     </div>
                     <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#555",textAlign:"center",marginBottom:16}}>
-                      Amount <strong style={{color:"#fff"}}>${lastOrder.total}</strong> will be pre-filled when Cash App opens.
+                      Send <strong style={{color:"#fff"}}>${lastOrder.total}</strong> to <strong style={{color:"#fff"}}>{settings.cashapp}</strong>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       <a href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer"
