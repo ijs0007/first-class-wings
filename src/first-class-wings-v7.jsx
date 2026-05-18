@@ -919,8 +919,8 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
                   <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
                   {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
                   {lastOrder.orderTime?.day
-                    ?<div className="rs-row"><span className="rs-lbl">📅 Pickup</span><span className="rs-val" style={{color:"var(--or)"}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>
-                    :<div className="rs-row"><span className="rs-lbl">📅 Pickup</span><span className="rs-val" style={{color:"#888"}}>ASAP</span></div>
+                    ?<div className="rs-row"><span className="rs-lbl">⏱ Est. Pickup</span><span className="rs-val" style={{color:"var(--or)",fontWeight:600}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>
+                    :<div className="rs-row"><span className="rs-lbl">⏱ Est. Pickup</span><span className="rs-val" style={{color:"#888"}}>ASAP</span></div>
                   }
                   {lastOrder.notes&&<div className="rs-row"><span className="rs-lbl">Notes</span><span className="rs-val">{lastOrder.notes}</span></div>}
                   <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
@@ -988,8 +988,8 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
 
                 {lastOrder.orderTime?.day&&(
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:.5}}>Pickup</span>
-                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--wh)"}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span>
+                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:.5}}>Est. Pickup</span>
+                    <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--or)"}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span>
                   </div>
                 )}
 
