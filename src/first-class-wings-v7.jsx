@@ -1459,6 +1459,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
   const [attempts,setAttempts]               = useState(0);
   const [lockedUntil,setLockedUntil]         = useState(null);
   const [sortBy,setSortBy]                   = useState("newest");
+  const [expandedOrders,setExpandedOrders]   = useState(new Set());
   const completedCount = orders.filter(o=>o.status==="done").length;
 
   function getSortedOrders(){
@@ -1616,8 +1617,36 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
               </div>
 
               {/* ACTIVE ORDERS */}
-              {getSortedOrders().map(o=>(
+              {getSortedOrders().map(o=>{
+                const isNew = o.status==="new";
+                const isExpanded = expandedOrders.has(o.id);
+                const toggleExpand = ()=>setExpandedOrders(p=>{const n=new Set(p);n.has(o.id)?n.delete(o.id):n.add(o.id);return n;});
+
+                // COLLAPSED NEW ORDER
+                if(isNew&&!isExpanded) return(
+                  <div key={o.id} className="ocard status-new" style={{position:"relative",cursor:"pointer"}} onClick={toggleExpand}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <div>
+                        <div className="onum-chip" style={{marginBottom:3}}>{o.orderNum}</div>
+                        <div className="oname" style={{fontSize:13}}>{o.firstName} {o.lastName}</div>
+                        <div style={{fontSize:10,color:"var(--gr)",marginTop:2}}>{o.cartItems?.map(i=>i.combo.label).join(", ")} · <span style={{color:"var(--or)"}}>${o.total}</span></div>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+                        <button onClick={e=>{e.stopPropagation();if(window.confirm("Delete this order?")) upStatus(o.id,"done");}}
+                          style={{background:"none",border:"1px solid #333",color:"#555",width:22,height:22,borderRadius:"50%",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>✕</button>
+                        <span className="obadge b-new" style={{fontSize:8}}>🔥 New — tap to expand</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+
+                return(
                 <div key={o.id} className={`ocard status-${o.status}`} style={{position:"relative"}}>
+                  {isNew&&(
+                    <button onClick={toggleExpand} style={{position:"absolute",top:8,right:8,background:"none",border:"1px solid #333",color:"#555",fontFamily:"'Oswald',sans-serif",fontSize:8,letterSpacing:.5,padding:"2px 7px",borderRadius:3,cursor:"pointer",zIndex:2}}>
+                      ▲ Collapse
+                    </button>
+                  )}
                   {/* Checkbox for done orders when clear mode active */}
                   {showClearToggle&&o.status==="done"&&(
                     <div onClick={()=>setClearSelected(p=>{const n=new Set(p);n.has(o.id)?n.delete(o.id):n.add(o.id);return n;})}
@@ -1693,7 +1722,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                     )}
                   </div>
                 </div>
-              ))}
+              )})}
 
               {/* COMPLETED — dimmed at bottom */}
               {orders.filter(o=>o.status==="done").length>0&&(
