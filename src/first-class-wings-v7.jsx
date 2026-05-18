@@ -620,6 +620,7 @@ export default function App(){
   }
 
   const loginOwner=()=>{ if(ownerPin===settings.ownerPin){setOwnerUnlocked(true);showToast("Welcome back! 👑");}else showToast("Wrong PIN!"); };
+  const logoutOwner=()=>{ setOwnerUnlocked(false); setOwnerPin(""); setView("customer"); showToast("Signed out 👋"); };
 
   // navigation
   function navigate(screen){ setCustScreen(screen); setScreenHistory(h=>[...h,screen]); }
@@ -724,7 +725,7 @@ export default function App(){
         />}
       {view==="owner" &&
         <OwnerView
-          unlocked={ownerUnlocked} pin={ownerPin} setPin={setOwnerPin} onLogin={loginOwner}
+          unlocked={ownerUnlocked} pin={ownerPin} setPin={setOwnerPin} onLogin={loginOwner} onLogout={logoutOwner}
           orders={orders} newCt={newCt} confirmedCt={confirmedCt} todayTot={todayTot}
           openDates={openDates} toggleDate={toggleDate} isDateOpen={isDateOpen}
           settings={settings} setSettings={setSettings}
@@ -1268,7 +1269,7 @@ function TimeDayPicker({orderTime,setOrderTime,thisWeekOpenDays,settings}){
 }
 
 // ── OWNER VIEW ─────────────────────────────────────────────────────────────────
-function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTot,openDates,toggleDate,isDateOpen,settings,setSettings,confirmOrder,upStatus,showToast,clearCompleted}){
+function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedCt,todayTot,openDates,toggleDate,isDateOpen,settings,setSettings,confirmOrder,upStatus,showToast,clearCompleted}){
   const [tab,setTab]         = useState("orders");
   const [calView,setCalView] = useState("week");
   const [calMonth,setCalMonth]= useState(()=>{ const n=new Date(); return{y:n.getFullYear(),m:n.getMonth()}; });
@@ -1371,7 +1372,19 @@ function OwnerView({unlocked,pin,setPin,onLogin,orders,newCt,confirmedCt,todayTo
 
   return(
     <div className="dash">
-      <div className="dash-title">👑 Dashboard</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+        <div className="dash-title">👑 Dashboard</div>
+        <button onClick={onLogout} style={{
+          background:"none",border:"1px solid #2a2a2a",color:"#444",
+          fontFamily:"'Oswald',sans-serif",fontSize:9,letterSpacing:1,
+          padding:"4px 10px",borderRadius:4,cursor:"pointer",textTransform:"uppercase",
+          transition:"all .2s"
+        }}
+        onMouseOver={e=>{e.target.style.borderColor="var(--rd)";e.target.style.color="var(--rd)";}}
+        onMouseOut={e=>{e.target.style.borderColor="#2a2a2a";e.target.style.color="#444";}}>
+          Sign Out
+        </button>
+      </div>
       <div className="dash-sub">First Class Wings · Command Center</div>
       <div className="stats">
         <div className="stat"><div className="stat-n">{newCt}</div><div className="stat-l">New</div></div>
