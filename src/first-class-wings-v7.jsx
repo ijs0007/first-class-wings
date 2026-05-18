@@ -1455,11 +1455,10 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
 
                   <div className="oacts">
                     {o.status==="confirmed"&&<>
-                      <a className="abtn" style={{background:"rgba(192,57,43,.1)",border:"1px solid rgba(192,57,43,.3)",color:"#d09080",textDecoration:"none"}}
-                        href={`sms:${o.phone}&body=Hey ${o.firstName}! Just a quick heads up — there's a small update on your order ${o.orderNum}. The owner will reach out to you shortly. 🍗`}
-                        onClick={()=>setTimeout(()=>setUnconfirmModal(o.id),500)}>
+                      <button className="abtn" style={{background:"rgba(192,57,43,.1)",border:"1px solid rgba(192,57,43,.3)",color:"#d09080"}}
+                        onClick={()=>setUnconfirmModal(o)}>
                         ↩ Unconfirm
-                      </a>
+                      </button>
                       <a className="abtn a-ok" style={{textDecoration:"none",textAlign:"center"}}
                         href={`sms:${o.phone}&body=Hey ${o.firstName}! 🍳 We're making your First Class Wings right now! Order ${o.orderNum} is in the fryer. Won't be long! 🔥`}
                         onClick={()=>setTimeout(()=>upStatus(o.id,"cooking"),500)}>
@@ -1918,7 +1917,11 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
             </div>
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={()=>setUnconfirmModal(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={()=>{upStatus(unconfirmModal,"new");setUnconfirmModal(null);}}>I Understand — Unconfirm</button>
+              <a className="btn btn-danger" style={{textDecoration:"none",textAlign:"center"}}
+                href={`sms:${unconfirmModal.phone}&body=Hey ${unconfirmModal.firstName}! Just a quick heads up — there's a small update on your order ${unconfirmModal.orderNum}. The owner will reach out to you shortly. 🍗`}
+                onClick={()=>setTimeout(()=>{ upStatus(unconfirmModal.id,"new"); setUnconfirmModal(null); },400)}>
+                I Understand — Unconfirm
+              </a>
             </div>
           </div>
         </div>
