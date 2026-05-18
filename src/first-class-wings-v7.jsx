@@ -808,6 +808,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     if(!form.firstName.trim()) e.firstName="Required";
     if(!form.lastName.trim()) e.lastName="Required";
     if(form.phone.replace(/\D/g,"").length<10) e.phone="Valid 10-digit number required";
+    if(!orderTime?.day) e.time="Please select a pickup day and time";
     setErrors(e); return Object.keys(e).length===0;
   }
 
@@ -836,15 +837,13 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     return(
       <div>
         <div className="back-bar">
-          <button className="back-btn" onClick={()=>{setCustScreen("build");setScreenHistory(["build"]);}}>◀ Back</button>
           <span className="bar-title">✅ Order Submitted!</span>
         </div>
         <div className="receipt">
 
-          {/* WARNING BANNER */}
-          <div className="warn-banner" style={{marginBottom:14}}>
-            <span className="ban-ico">⚠️</span>
-            <div className="ban-txt">Follow the steps below to complete your order. Your order won't be confirmed until payment is received and the owner verifies it.</div>
+          {/* BANNER — no back button, no caution symbol */}
+          <div style={{background:"rgba(41,128,185,.08)",border:"1px solid rgba(41,128,185,.25)",borderRadius:8,padding:"9px 13px",marginBottom:14}}>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#78b8d8",letterSpacing:.5,lineHeight:1.55}}>Follow the steps below to complete your order. Your order won't be confirmed until payment is received and the owner verifies it.</div>
           </div>
 
           {/* STEP 1 — COPY NOTE */}
@@ -854,11 +853,9 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               <div style={{width:1,flex:1,background:"#2a2a2a",marginTop:4}}/>
             </div>
             <div style={{flex:1,paddingBottom:10}}>
-              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>Copy payment note</div>
-              <div className="pay-note-card">
-                <div className="pn-title"><div className="pn-dot"/>Add This Note to Your Payment</div>
-                <div className="pn-desc" style={{marginTop:4}}>Paste into the memo/description when you pay.</div>
-                <div className="pn-body">{payNote}</div>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Copy payment note</div>
+              <div style={{background:"rgba(255,255,255,.03)",border:"1px solid #222",borderRadius:7,padding:"8px 10px"}}>
+                <div className="pn-body" style={{marginBottom:7,fontSize:11}}>{payNote}</div>
                 <button className={`copy-btn ${copied?"copy-done":"copy-idle"}`} onClick={()=>copyNote(payNote)}>
                   {copied?"✓ Copied!":"📋 Tap to Copy"}
                 </button>
@@ -873,28 +870,40 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               <div style={{width:1,flex:1,background:"#2a2a2a",marginTop:4}}/>
             </div>
             <div style={{flex:1,paddingBottom:10}}>
-              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>Open pay app · paste note · send payment</div>
-              <div className="pay-actions">
-                <a className="pa-btn pa-cashapp" href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
-                  <span>💚</span><span style={{flex:1}}>Pay with Cash App</span><span className="pa-amount">${lastOrder.total}</span>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Open pay app · paste note · send payment</div>
+              <div style={{display:"flex",gap:6}}>
+                <a href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer"
+                  onClick={()=>setTimeout(()=>copyNote(payNote),400)}
+                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"rgba(0,210,75,.06)",border:"1px solid rgba(0,210,75,.2)",borderRadius:7,padding:"10px 6px",textDecoration:"none"}}>
+                  <span style={{fontSize:22}}>💚</span>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#4cd87a",letterSpacing:.5}}>Cash App</span>
+                  <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#4cd87a"}}>${lastOrder.total}</span>
                 </a>
-                <a className="pa-btn pa-venmo" href={venmoLink(settings.venmo,lastOrder.total,payNote)} target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
-                  <span>💜</span><span style={{flex:1}}>Pay with Venmo</span><span className="pa-amount">${lastOrder.total}</span>
+                <a href={venmoLink(settings.venmo,lastOrder.total,payNote)} target="_blank" rel="noreferrer"
+                  onClick={()=>setTimeout(()=>copyNote(payNote),400)}
+                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"rgba(0,140,255,.06)",border:"1px solid rgba(0,140,255,.2)",borderRadius:7,padding:"10px 6px",textDecoration:"none"}}>
+                  <span style={{fontSize:22}}>💜</span>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#78b8d8",letterSpacing:.5}}>Venmo</span>
+                  <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#78b8d8"}}>${lastOrder.total}</span>
                 </a>
-                <a className="pa-btn pa-zelle" href="https://enroll.zellepay.com/" target="_blank" rel="noreferrer" onClick={()=>setTimeout(()=>copyNote(payNote),400)}>
-                  <span>📱</span><span style={{flex:1}}>Zelle: {settings.zelle}</span><span className="pa-amount">${lastOrder.total}</span>
+                <a href="https://enroll.zellepay.com/" target="_blank" rel="noreferrer"
+                  onClick={()=>setTimeout(()=>copyNote(payNote),400)}
+                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"rgba(107,45,139,.06)",border:"1px solid rgba(107,45,139,.2)",borderRadius:7,padding:"10px 6px",textDecoration:"none"}}>
+                  <span style={{fontSize:22}}>📱</span>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#b07ad8",letterSpacing:.5}}>Zelle</span>
+                  <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#b07ad8"}}>${lastOrder.total}</span>
                 </a>
               </div>
             </div>
           </div>
 
           {/* STEP 3 — ORDER SUMMARY */}
-          <div style={{display:"flex",gap:10,marginBottom:14}}>
+          <div style={{display:"flex",gap:10,marginBottom:12}}>
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0}}>
               <div style={{width:22,height:22,borderRadius:"50%",background:"var(--or)",color:"#000",fontFamily:"'Bebas Neue',sans-serif",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>3</div>
             </div>
             <div style={{flex:1}}>
-              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>Screenshot your order summary</div>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Screenshot your order summary</div>
               <div style={{position:"relative",padding:6}}>
                 <div style={{position:"absolute",top:0,left:0,width:14,height:14,borderTop:"2px solid var(--or)",borderLeft:"2px solid var(--or)"}}/>
                 <div style={{position:"absolute",top:0,right:0,width:14,height:14,borderTop:"2px solid var(--or)",borderRight:"2px solid var(--or)"}}/>
@@ -919,14 +928,13 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
                   <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
                 </div>
               </div>
-              <div style={{textAlign:"center",marginTop:6,fontSize:9,color:"#444",letterSpacing:.3}}>or tap Enlarge for a clean full-screen receipt</div>
+              <div style={{textAlign:"center",marginTop:5,fontSize:9,color:"#444"}}>or tap Enlarge for a clean full-screen receipt</div>
             </div>
           </div>
 
-          {/* TEXT CONFIRMATION NOTE */}
-          <div className="info-banner" style={{marginBottom:14}}>
-            <span className="ban-ico">📱</span>
-            <div className="ban-txt">Once payment is confirmed, you'll receive a text confirmation.</div>
+          {/* TEXT CONFIRMATION */}
+          <div style={{textAlign:"center",fontSize:10,color:"#555",fontFamily:"'Oswald',sans-serif",letterSpacing:.5,marginBottom:14}}>
+            Once payment is confirmed, you'll receive a text confirmation.
           </div>
 
           {/* PLACE ANOTHER ORDER */}
@@ -1078,6 +1086,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           {/* ORDER TIME + SPECIAL DAY COMBINED */}
           <div className="sec-hdr" style={{marginTop:12}}><div className="sec-title">When Do You Want It?</div><div className="sec-line"/></div>
           <TimeDayPicker orderTime={orderTime} setOrderTime={setOrderTime} thisWeekOpenDays={thisWeekOpenDays} settings={settings}/>
+          {errors.time&&<div style={{color:"var(--rd)",fontSize:10,fontFamily:"'Oswald',sans-serif",letterSpacing:.5,marginTop:4,padding:"0 2px"}}>⚠️ {errors.time}</div>}
 
           <button className="btn btn-or" onClick={submitOrder}>✅ Submit Order — ${cartTotal}</button>
           <div style={{height:20}}/>
