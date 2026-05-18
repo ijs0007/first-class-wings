@@ -58,17 +58,22 @@ const DAY_FULL   = { monday:"Monday",tuesday:"Tuesday",wednesday:"Wednesday",thu
 const MONTH_NAMES= ["January","February","March","April","May","June","July","August","September","October","November","December"];
 // ── helpers ──────────────────────────────────────────────────────────────────
 async function getNextOrderNum(){
+  // Counter stored in Supabase settings row — works across all devices
   try{
-    // One-time reset: if stored value is from old random system (>3 digits or NaN), start fresh
-    const result = await window.storage.get("fcw_order_counter");
-    const stored = result ? result.value : null;
-    const current = (stored && !isNaN(parseInt(stored,10)) && parseInt(stored,10)<=999) ? parseInt(stored,10) : 0;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?id=eq.1&select=order_counter`,{
+      headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+    });
+    const rows = await res.json();
+    const current = (rows&&rows[0]&&rows[0].order_counter) ? parseInt(rows[0].order_counter,10) : 0;
     const next = (current>=999) ? 1 : current+1;
-    await window.storage.set("fcw_order_counter", String(next));
+    await fetch(`${SUPABASE_URL}/rest/v1/settings?id=eq.1`,{
+      method:"PATCH",
+      headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, "Content-Type":"application/json" },
+      body: JSON.stringify({order_counter:next})
+    });
     return "FCW-"+String(next).padStart(3,"0");
   }catch{
-    const n=Math.floor(Math.random()*999)+1;
-    return "FCW-"+String(n).padStart(3,"0");
+    return "FCW-001";
   }
 }
 function fmtTime(d){ return d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}); }
@@ -77,7 +82,7 @@ function dateKey(y,m,d){ return `${y}-${String(m+1).padStart(2,"0")}-${String(d)
 function buildPayNote(o){ return `${o.orderNum} ${o.firstName} $${o.total}`; }
 function formatPhone(raw){ const d=raw.replace(/\D/g,"").slice(0,10); if(d.length<=3) return d; if(d.length<=6) return `(${d.slice(0,3)}) ${d.slice(3)}`; return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; }
 function cashAppLink(tag,amt){ return `https://cash.app/${tag.replace("$","")}/${amt}`; }
-function venmoLink(user,amt,note){ return `https://venmo.com/${user}?txn=pay&amount=${amt}&note=${encodeURIComponent(note).replace(/\+/g,"%20")}`; }
+function venmoLink(user,amt,note){ return `https://venmo.com/${user}?txn=pay&amount=${amt}&note=${note.replace(/ /g,"%20")}`; }
 
 function generateTimeSlots(open,close,slotMins){
   const slots=[];
@@ -533,6 +538,10 @@ export default function App(){
         const s = await sb.get("settings","?id=eq.1&select=*");
         if(s&&s[0]){
           const row=s[0];
+          // Initialize order_counter to 0 if it doesn't exist yet
+          if(row.order_counter===null||row.order_counter===undefined){
+            await sb.patch("settings","?id=eq.1",{order_counter:0});
+          }
           setSettingsState({
             cashapp:row.cashapp||"$FirstClassWings",
             venmo:row.venmo||"FirstClassWings",
