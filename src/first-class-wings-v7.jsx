@@ -1038,6 +1038,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
   // ── CHECKOUT ──
   if(screen==="checkout"){
     return(
+      <>
       <div>
         <div className="back-bar">
           {canGoBack&&<button className="back-btn" onClick={goBack}>◀ Back</button>}
@@ -1095,30 +1096,30 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           <button className="btn btn-or" onClick={()=>{ if(!validate()) return; setSubmitModal(true); }} style={{marginTop:12,opacity:(!orderTime?.day||(!orderTime?.time&&!orderTime?.isSpecial))?.5:1}}>✅ Submit Order — ${cartTotal}</button>
           <div style={{height:20}}/>
         </div>
+      </div>
 
-        {/* CONFIRM SUBMIT MODAL */}
-        {submitModal&&(
-          <div className="modal-overlay">
-            <div className="modal">
-              <div style={{textAlign:"center",fontSize:28,marginBottom:8}}>🍗</div>
-              <div className="modal-title">Ready to place your order?</div>
-              <div className="modal-body">
-                <div style={{marginBottom:8}}>Once submitted your order will appear in our system and you'll need to complete payment to confirm it.</div>
-                <div style={{background:"rgba(245,166,35,.06)",border:"1px solid rgba(245,166,35,.15)",borderRadius:6,padding:"8px 10px",fontSize:10,color:"var(--gr)"}}>
-                  {cart.map((item,i)=><div key={i}>{item.combo.label} — {item.flavorLabel} ×{item.qty}</div>)}
-                  <div style={{marginTop:4,color:"var(--or)",fontWeight:600}}>Total: ${cartTotal}</div>
-                  {orderTime?.day&&<div style={{marginTop:2,fontSize:9}}>⏱ {orderTime.day}{orderTime.time?` @ ${orderTime.time}`:""}</div>}
-                </div>
-              </div>
-              <div className="modal-actions">
-                <button className="btn btn-ghost" onClick={()=>setSubmitModal(false)}>Go Back</button>
-                <button className="btn btn-or" onClick={()=>{ setSubmitModal(false); submitOrder(); }}>Yes, Submit! 🔥</button>
+      {/* CONFIRM SUBMIT MODAL */}
+      {submitModal&&(
+        <div className="modal-overlay">
+          <div className="modal">
+            <div style={{textAlign:"center",fontSize:28,marginBottom:8}}>🍗</div>
+            <div className="modal-title">Ready to place your order?</div>
+            <div className="modal-body">
+              <div style={{marginBottom:8}}>Once submitted your order will appear in our system and you'll need to complete payment to confirm it.</div>
+              <div style={{background:"rgba(245,166,35,.06)",border:"1px solid rgba(245,166,35,.15)",borderRadius:6,padding:"8px 10px",fontSize:10,color:"var(--gr)"}}>
+                {cart.map((item,i)=><div key={i}>{item.combo.label} — {item.flavorLabel} ×{item.qty}</div>)}
+                <div style={{marginTop:4,color:"var(--or)",fontWeight:600}}>Total: ${cartTotal}</div>
+                {orderTime?.day&&<div style={{marginTop:2,fontSize:9}}>⏱ {orderTime.day}{orderTime.time?` @ ${orderTime.time}`:""}</div>}
               </div>
             </div>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={()=>setSubmitModal(false)}>Go Back</button>
+              <button className="btn btn-or" onClick={()=>{ setSubmitModal(false); submitOrder(); }}>Yes, Submit! 🔥</button>
+            </div>
           </div>
-        )}
         </div>
-      </div>
+      )}
+      </>
     );
   }
 
