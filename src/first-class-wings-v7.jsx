@@ -808,7 +808,8 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
     if(!form.firstName.trim()) e.firstName="Required";
     if(!form.lastName.trim()) e.lastName="Required";
     if(form.phone.replace(/\D/g,"").length<10) e.phone="Valid 10-digit number required";
-    if(!orderTime?.day) e.time="Please select a pickup day and time";
+    if(!orderTime?.day) e.time="Please select a pickup day";
+    else if(!orderTime?.time&&!orderTime?.isSpecial) e.time="Please select a pickup time";
     setErrors(e); return Object.keys(e).length===0;
   }
 
@@ -856,7 +857,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--or)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Copy payment note</div>
               <div style={{background:"rgba(255,255,255,.03)",border:"1px solid #222",borderRadius:7,padding:"8px 10px"}}>
                 <div className="pn-body" style={{marginBottom:7,fontSize:11}}>{payNote}</div>
-                <button className={`copy-btn ${copied?"copy-done":"copy-idle"}`} onClick={()=>copyNote(payNote)}>
+                <button className={`copy-btn ${copied?"copy-done":"copy-idle"}`} onClick={()=>copyNote(payNote)} style={{padding:"4px 0"}}>
                   {copied?"✓ Copied!":"📋 Tap to Copy"}
                 </button>
               </div>
@@ -874,23 +875,20 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               <div style={{display:"flex",gap:6}}>
                 <a href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer"
                   onClick={()=>setTimeout(()=>copyNote(payNote),400)}
-                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"rgba(0,210,75,.06)",border:"1px solid rgba(0,210,75,.2)",borderRadius:7,padding:"10px 6px",textDecoration:"none"}}>
-                  <span style={{fontSize:22}}>💚</span>
-                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#4cd87a",letterSpacing:.5}}>Cash App</span>
+                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"rgba(0,210,75,.06)",border:"1px solid rgba(0,210,75,.2)",borderRadius:7,padding:"8px 4px",textDecoration:"none"}}>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#4cd87a",letterSpacing:.5}}>Cash App</span>
                   <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#4cd87a"}}>${lastOrder.total}</span>
                 </a>
                 <a href={venmoLink(settings.venmo,lastOrder.total,payNote)} target="_blank" rel="noreferrer"
                   onClick={()=>setTimeout(()=>copyNote(payNote),400)}
-                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"rgba(0,140,255,.06)",border:"1px solid rgba(0,140,255,.2)",borderRadius:7,padding:"10px 6px",textDecoration:"none"}}>
-                  <span style={{fontSize:22}}>💜</span>
-                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#78b8d8",letterSpacing:.5}}>Venmo</span>
+                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"rgba(0,140,255,.06)",border:"1px solid rgba(0,140,255,.2)",borderRadius:7,padding:"8px 4px",textDecoration:"none"}}>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#78b8d8",letterSpacing:.5}}>Venmo</span>
                   <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#78b8d8"}}>${lastOrder.total}</span>
                 </a>
                 <a href="https://enroll.zellepay.com/" target="_blank" rel="noreferrer"
                   onClick={()=>setTimeout(()=>copyNote(payNote),400)}
-                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"rgba(107,45,139,.06)",border:"1px solid rgba(107,45,139,.2)",borderRadius:7,padding:"10px 6px",textDecoration:"none"}}>
-                  <span style={{fontSize:22}}>📱</span>
-                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#b07ad8",letterSpacing:.5}}>Zelle</span>
+                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"rgba(107,45,139,.06)",border:"1px solid rgba(107,45,139,.2)",borderRadius:7,padding:"8px 4px",textDecoration:"none"}}>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#b07ad8",letterSpacing:.5}}>Zelle</span>
                   <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#b07ad8"}}>${lastOrder.total}</span>
                 </a>
               </div>
@@ -928,7 +926,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
                   <div className="rs-row total"><span>Total</span><span>${lastOrder.total}</span></div>
                 </div>
               </div>
-              <div style={{textAlign:"center",marginTop:5,fontSize:9,color:"#444"}}>or tap Enlarge for a clean full-screen receipt</div>
+              <div style={{textAlign:"center",marginTop:5,fontSize:9,color:"#444"}}></div>
             </div>
           </div>
 
@@ -1086,9 +1084,9 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           {/* ORDER TIME + SPECIAL DAY COMBINED */}
           <div className="sec-hdr" style={{marginTop:12}}><div className="sec-title">When Do You Want It?</div><div className="sec-line"/></div>
           <TimeDayPicker orderTime={orderTime} setOrderTime={setOrderTime} thisWeekOpenDays={thisWeekOpenDays} settings={settings}/>
-          {errors.time&&<div style={{color:"var(--rd)",fontSize:10,fontFamily:"'Oswald',sans-serif",letterSpacing:.5,marginTop:4,padding:"0 2px"}}>⚠️ {errors.time}</div>}
+          {errors.time&&<div style={{color:"var(--rd)",fontSize:10,fontFamily:"'Oswald',sans-serif",letterSpacing:.5,marginTop:6,padding:"6px 10px",background:"rgba(192,57,43,.08)",border:"1px solid rgba(192,57,43,.25)",borderRadius:5}}>⚠️ {errors.time}</div>}
 
-          <button className="btn btn-or" onClick={submitOrder}>✅ Submit Order — ${cartTotal}</button>
+          <button className="btn btn-or" onClick={submitOrder} style={{marginTop:12,opacity:(!orderTime?.day||(!orderTime?.time&&!orderTime?.isSpecial))?.5:1}}>✅ Submit Order — ${cartTotal}</button>
           <div style={{height:20}}/>
         </div>
       </div>
