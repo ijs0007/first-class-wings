@@ -113,8 +113,8 @@ body{background:var(--blk);color:var(--wh);font-family:'Inter',sans-serif;min-he
 
 /* BACK BAR */
 .back-bar{display:flex;align-items:center;gap:8px;padding:8px 13px;background:#0d0d0d;border-bottom:1px solid var(--bdr);position:sticky;top:56px;z-index:200}
-.back-btn{background:none;border:1px solid var(--bdr);color:var(--gr);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:4px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:4px;-webkit-appearance:none;appearance:none}
-.back-btn:hover{border-color:var(--or);color:var(--or)}
+.back-btn{background:none;border:1px solid var(--bdr);color:var(--gr)!important;font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:4px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:4px;-webkit-appearance:none;appearance:none;text-decoration:none;-webkit-text-fill-color:var(--gr)}
+.back-btn:hover{border-color:var(--or);color:var(--or)!important;-webkit-text-fill-color:var(--or)}
 .fwd-btn{background:none;border:1px solid var(--bdr);color:var(--gr);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1px;padding:4px 11px;border-radius:4px;cursor:pointer;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:4px;margin-left:auto}
 .fwd-btn:hover{border-color:var(--or);color:var(--or)}
 .fwd-btn:disabled{opacity:.3;cursor:not-allowed}
@@ -887,6 +887,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
         <div className="back-bar">
           {canGoBack&&<button className="back-btn" onClick={goBack}>◀ Back</button>}
           <span className="bar-title">Checkout</span>
+          <button className="back-btn" style={{marginLeft:"auto"}} onClick={()=>navigate("build")}>+ Add Item</button>
         </div>
         <div className="sc">
           <div className="sec-hdr"><div className="sec-title">Your Order</div><div className="sec-line"/></div>
@@ -1141,7 +1142,10 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
             <span className="total-lbl">Running Total</span>
             <span className="total-val">${b.combo ? cartTotal+itemSub : cartTotal}</span>
           </div>
-          <button className="add-another-btn" onClick={()=>{setB(fresh());setStep(1);}}>➕ Add Another Item</button>
+          <button className="add-another-btn" onClick={()=>{
+            if(b.combo&&b.flavor1){ setCart(p=>[...p,buildItem()]); showToast("Added! 🔥"); }
+            setB(fresh()); setStep(1);
+          }}>➕ Add Another Item</button>
           {b.combo
             ? <button className="btn btn-or" onClick={()=>{const item=buildItem();setCart(p=>[...p,item]);setB(fresh());navigate("checkout");}}>✅ I'm Done — Go to Checkout</button>
             : cart.length>0&&<button className="btn btn-or" onClick={()=>navigate("checkout")}>✅ Go to Checkout</button>
