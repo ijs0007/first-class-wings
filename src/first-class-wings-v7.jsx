@@ -82,7 +82,7 @@ function dateKey(y,m,d){ return `${y}-${String(m+1).padStart(2,"0")}-${String(d)
 function buildPayNote(o){ return `${o.orderNum} ${o.firstName} $${o.total}`; }
 function formatPhone(raw){ const d=raw.replace(/\D/g,"").slice(0,10); if(d.length<=3) return d; if(d.length<=6) return `(${d.slice(0,3)}) ${d.slice(3)}`; return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; }
 function cashAppLink(tag,amt){ return `https://cash.app/${tag.replace("$","")}/${amt}`; }
-function venmoLink(user,amt,note){ return `https://venmo.com/${user}?txn=pay&amount=${amt}&note=${note.replace(/ /g,"%20")}`; }
+function venmoLink(user,amt){ return `https://venmo.com/${user}?txn=pay&amount=${amt}`; }
 
 function generateTimeSlots(open,close,slotMins){
   const slots=[];
@@ -910,7 +910,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
 
                 {/* VENMO — PREFERRED, opens directly */}
-                <a href={venmoLink(settings.venmo,lastOrder.total,payNote)} target="_blank" rel="noreferrer"
+                <a href={venmoLink(settings.venmo,lastOrder.total)} target="_blank" rel="noreferrer"
                   style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(54,85,178,.14)",border:"1.5px solid rgba(54,85,178,.35)",borderRadius:9,padding:"11px 13px",textDecoration:"none"}}>
                   <div style={{display:"flex",alignItems:"center",gap:9}}>
                     <span style={{fontSize:18}}>💜</span>
@@ -2109,99 +2109,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
       )}
 
       {/* ANALYTICS TAB */}
-      {tab==="analytics"&&(()=>{
-        const allDone = orders.filter(o=>["confirmed","ready","done","raincheck","archived"].includes(o.status));
-        const today = new Date();
-        const todayOrders = allDone.filter(o=>o.date&&o.date.includes(today.toLocaleDateString("en-US",{month:"short",day:"numeric"})));
-        const totalEarned = allDone.reduce((s,o)=>s+(o.total||0),0);
-        const todayEarned = todayOrders.reduce((s,o)=>s+(o.total||0),0);
-        const totalOrders = orders.filter(o=>o.status!=="new").length;
-        const avgOrder = totalOrders>0?(totalEarned/totalOrders).toFixed(2):0;
-
-        // Flavor breakdown
-        const flavorCounts={};
-        orders.filter(o=>o.status!=="new").forEach(o=>o.cartItems?.forEach(i=>{ const f=i.flavorLabel||"Unknown"; flavorCounts[f]=(flavorCounts[f]||0)+i.qty; }));
-        const topFlavors=Object.entries(flavorCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
-        const maxFlavor=topFlavors[0]?.[1]||1;
-
-        // Day breakdown
-        const dayCounts={Mon:0,Tue:0,Wed:0,Thu:0,Fri:0,Sat:0,Sun:0};
-        orders.forEach(o=>{ if(o.date){ const d=new Date(o.date); const labels=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const k=labels[d.getDay()]; if(k&&dayCounts[k]!==undefined) dayCounts[k]++; } });
-        const maxDay=Math.max(...Object.values(dayCounts))||1;
-
-        return(
-          <div style={{padding:"4px 0"}}>
-            {/* TOP STATS */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-              {[
-                {label:"Today's Earnings",val:`$${todayEarned.toFixed(2)}`,color:"var(--or)",icon:"💰"},
-                {label:"All Time Earned",val:`$${totalEarned.toFixed(2)}`,color:"var(--ok)",icon:"🏆"},
-                {label:"Total Orders",val:totalOrders,color:"var(--blue)",icon:"📦"},
-                {label:"Avg Order Size",val:`$${avgOrder}`,color:"#b08080",icon:"📊"},
-              ].map(s=>(
-                <div key={s.label} style={{background:"var(--card)",border:"1px solid var(--bdr)",borderRadius:8,padding:"12px 10px",textAlign:"center"}}>
-                  <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:s.color,letterSpacing:1}}>{s.val}</div>
-                  <div style={{fontFamily:"'Oswald',sans-serif",fontSize:8,color:"var(--gr)",letterSpacing:1,textTransform:"uppercase",marginTop:2}}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* TOP FLAVORS */}
-            <div className="scard" style={{marginBottom:10}}>
-              <div className="stitle">🔥 Top Flavors</div>
-              {topFlavors.length===0
-                ?<div style={{fontSize:11,color:"var(--gr)"}}>No orders yet</div>
-                :topFlavors.map(([name,count],i)=>(
-                  <div key={name} style={{marginBottom:8}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:i===0?"var(--or)":"var(--wh)",letterSpacing:.5}}>
-                        {i===0?"👑 ":i===1?"🥈 ":i===2?"🥉 ":""}{name}
-                      </div>
-                      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:"var(--or)"}}>{count}x</div>
-                    </div>
-                    <div style={{height:5,background:"#1a1a1a",borderRadius:3,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${(count/maxFlavor)*100}%`,background:i===0?"var(--or)":"#333",borderRadius:3,transition:"width .5s ease"}}/>
-                    </div>
-                  </div>
-                ))
-              }
-            </div>
-
-            {/* BUSIEST DAYS */}
-            <div className="scard" style={{marginBottom:10}}>
-              <div className="stitle">📅 Orders by Day</div>
-              <div style={{display:"flex",gap:4,alignItems:"flex-end",height:70}}>
-                {Object.entries(dayCounts).map(([day,count])=>(
-                  <div key={day} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:"var(--or)",opacity:count>0?1:.3}}>{count||""}</div>
-                    <div style={{width:"100%",height:`${Math.max((count/maxDay)*50,4)}px`,background:count>0?"var(--or)":"#1a1a1a",borderRadius:"3px 3px 0 0",transition:"height .4s ease",minHeight:4}}/>
-                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--gr)",letterSpacing:.5}}>{day}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ORDER STATUS BREAKDOWN */}
-            <div className="scard">
-              <div className="stitle">📋 Order Breakdown</div>
-              {[
-                {label:"New / Pending",count:orders.filter(o=>o.status==="new").length,color:"var(--or)"},
-                {label:"Confirmed",count:orders.filter(o=>o.status==="confirmed").length,color:"var(--blue)"},
-                {label:"Cooking",count:orders.filter(o=>o.status==="cooking").length,color:"var(--rd)"},
-                {label:"Ready",count:orders.filter(o=>o.status==="ready").length,color:"var(--ok)"},
-                {label:"Completed",count:orders.filter(o=>o.status==="done").length,color:"#3a3a3a"},
-                {label:"Rain Checked",count:orders.filter(o=>o.status==="raincheck").length,color:"#78b8d8"},
-              ].map(s=>(
-                <div key={s.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #1a1a1a"}}>
-                  <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--gr)",letterSpacing:.5}}>{s.label}</div>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:s.color}}>{s.count}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
+      {tab==="analytics"&&<AnalyticsTab orders={orders}/>}
 
       {/* SETTINGS TAB */}
       {tab==="settings"&&(
@@ -2458,7 +2366,107 @@ const AUTO_MESSAGES = [
   "What's up {name}! 🍗 First Class Wings back at it. ATL style wings made fresh to order. Starting at $12. You know what to do!",
 ];
 
-function BlastTab({orders,showToast}){
+// ── ANALYTICS TAB ─────────────────────────────────────────────────────────────
+function AnalyticsTab({orders}){
+  // Exclude cancelled orders from all revenue/count calculations
+  const paidStatuses = ["confirmed","ready","done","raincheck","archived"];
+  const allPaid = orders.filter(o=>paidStatuses.includes(o.status));
+  const today = new Date();
+  const todayStr = today.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+  const todayPaid = allPaid.filter(o=>o.date&&o.date.includes(todayStr));
+  const totalEarned = allPaid.reduce((s,o)=>s+(o.total||0),0);
+  const todayEarned = todayPaid.reduce((s,o)=>s+(o.total||0),0);
+  const totalOrders = allPaid.length;
+  const avgOrder = totalOrders>0?(totalEarned/totalOrders).toFixed(2):0;
+
+  // Flavor breakdown — paid orders only
+  const flavorCounts={};
+  allPaid.forEach(o=>o.cartItems?.forEach(i=>{ const f=i.flavorLabel||"Unknown"; flavorCounts[f]=(flavorCounts[f]||0)+i.qty; }));
+  const topFlavors=Object.entries(flavorCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxFlavor=topFlavors[0]?.[1]||1;
+
+  // Day breakdown — paid orders only
+  const dayCounts={Mon:0,Tue:0,Wed:0,Thu:0,Fri:0,Sat:0,Sun:0};
+  allPaid.forEach(o=>{ if(o.date){ const d=new Date(o.date); const labels=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const k=labels[d.getDay()]; if(k&&dayCounts[k]!==undefined) dayCounts[k]++; } });
+  const maxDay=Math.max(...Object.values(dayCounts))||1;
+
+  return(
+    <div style={{padding:"4px 0"}}>
+      {/* TOP STATS */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+        {[
+          {label:"Today's Earnings",val:`$${todayEarned.toFixed(2)}`,color:"var(--or)",icon:"💰"},
+          {label:"All Time Earned",val:`$${totalEarned.toFixed(2)}`,color:"var(--ok)",icon:"🏆"},
+          {label:"Total Orders",val:totalOrders,color:"var(--blue)",icon:"📦"},
+          {label:"Avg Order Size",val:`$${avgOrder}`,color:"#b08080",icon:"📊"},
+        ].map(s=>(
+          <div key={s.label} style={{background:"var(--card)",border:"1px solid var(--bdr)",borderRadius:8,padding:"12px 10px",textAlign:"center"}}>
+            <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:s.color,letterSpacing:1}}>{s.val}</div>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:8,color:"var(--gr)",letterSpacing:1,textTransform:"uppercase",marginTop:2}}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* TOP FLAVORS */}
+      <div className="scard" style={{marginBottom:10}}>
+        <div className="stitle">🔥 Top Flavors</div>
+        {topFlavors.length===0
+          ?<div style={{fontSize:11,color:"var(--gr)"}}>No orders yet</div>
+          :topFlavors.map(([name,count],i)=>(
+            <div key={name} style={{marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:i===0?"var(--or)":"var(--wh)",letterSpacing:.5}}>
+                  {i===0?"👑 ":i===1?"🥈 ":i===2?"🥉 ":""}{name}
+                </div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:"var(--or)"}}>{count}x</div>
+              </div>
+              <div style={{height:5,background:"#1a1a1a",borderRadius:3,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${(count/maxFlavor)*100}%`,background:i===0?"var(--or)":"#333",borderRadius:3,transition:"width .5s ease"}}/>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+
+      {/* BUSIEST DAYS */}
+      <div className="scard" style={{marginBottom:10}}>
+        <div className="stitle">📅 Orders by Day</div>
+        <div style={{display:"flex",gap:4,alignItems:"flex-end",height:70}}>
+          {Object.entries(dayCounts).map(([day,count])=>(
+            <div key={day} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:"var(--or)",opacity:count>0?1:.3}}>{count||""}</div>
+              <div style={{width:"100%",height:`${Math.max((count/maxDay)*50,4)}px`,background:count>0?"var(--or)":"#1a1a1a",borderRadius:"3px 3px 0 0",transition:"height .4s ease",minHeight:4}}/>
+              <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"var(--gr)",letterSpacing:.5}}>{day}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ORDER STATUS BREAKDOWN */}
+      <div className="scard">
+        <div className="stitle">📋 Order Breakdown</div>
+        {[
+          {label:"New / Pending",count:orders.filter(o=>o.status==="new").length,color:"var(--or)"},
+          {label:"Confirmed",count:orders.filter(o=>o.status==="confirmed").length,color:"var(--blue)"},
+          {label:"Cooking",count:orders.filter(o=>o.status==="cooking").length,color:"var(--rd)"},
+          {label:"Ready",count:orders.filter(o=>o.status==="ready").length,color:"var(--ok)"},
+          {label:"Completed",count:orders.filter(o=>o.status==="done").length,color:"#3a3a3a"},
+          {label:"Rain Checked",count:orders.filter(o=>o.status==="raincheck").length,color:"#78b8d8"},
+          {label:"Cancelled",count:orders.filter(o=>o.status==="cancelled").length,color:"#664444"},
+        ].map(s=>(
+          <div key={s.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #1a1a1a"}}>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--gr)",letterSpacing:.5}}>{s.label}</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:s.color}}>{s.count}</div>
+          </div>
+        ))}
+        <div style={{fontFamily:"'Oswald',sans-serif",fontSize:9,color:"#444",marginTop:8,lineHeight:1.5}}>* Cancelled orders are not included in earnings or totals.</div>
+      </div>
+    </div>
+  );
+}
+
+
   const allCustomers = [...new Map(
     orders.filter(o=>o.phone)
       .map(o=>([o.phone,{phone:o.phone,name:`${o.firstName||""} ${o.lastName||""}`.trim()||o.phone}]))
