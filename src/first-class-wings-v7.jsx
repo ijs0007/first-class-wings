@@ -783,6 +783,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
   const [lastOrder,setLastOrder]= useLocalStorage("fcw_last_order",null);
   const [removing,setRemoving] = useState(null);
   const [copied,setCopied]     = useState(false);
+  const [submitModal,setSubmitModal] = useState(false);
 
   const b=building; const setB=setBuilding;
   const step=buildStep; const setStep=setBuildStep;
@@ -921,7 +922,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
                     }}>⛶ Enlarge</button>
                   </div>
                   <div className="rs-row"><span className="rs-lbl">Order #</span><span className="rs-val" style={{fontFamily:"'JetBrains Mono',monospace",color:"var(--or)"}}>{lastOrder.orderNum}</span></div>
-                  <div className="rs-row"><span className="rs-lbl">Placed</span><span className="rs-val" style={{color:"#888"}}>{lastOrder.date} · {lastOrder.time}</span></div>
+                  <div className="rs-row"><span className="rs-lbl">Order Placed</span><span className="rs-val" style={{color:"#888"}}>{lastOrder.date} · {lastOrder.time}</span></div>
                   {lastOrder.cartItems?.map((item,i)=>(<div key={i} className="rs-row"><span className="rs-lbl">{item.combo.label}</span><span className="rs-val">{item.flavorLabel} ×{item.qty}</span></div>))}
                   {lastOrder.orderTime?.day
                     ?<div className="rs-row"><span className="rs-lbl">⏱ Est. Pickup</span><span className="rs-val" style={{color:"var(--or)",fontWeight:600}}>{lastOrder.orderTime.day}{lastOrder.orderTime.time?` @ ${lastOrder.orderTime.time}`:""}</span></div>
@@ -978,7 +979,7 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
                   <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"var(--or)",fontWeight:700}}>{lastOrder.orderNum}</span>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#555",letterSpacing:.5,textTransform:"uppercase"}}>Date</span>
+                  <span style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#555",letterSpacing:.5,textTransform:"uppercase"}}>Order Placed</span>
                   <span style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"var(--wh)"}}>{lastOrder.date} · {lastOrder.time}</span>
                 </div>
 
@@ -1091,8 +1092,31 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
           <TimeDayPicker orderTime={orderTime} setOrderTime={setOrderTime} thisWeekOpenDays={thisWeekOpenDays} settings={settings}/>
           {errors.time&&<div style={{color:"var(--rd)",fontSize:10,fontFamily:"'Oswald',sans-serif",letterSpacing:.5,marginTop:6,padding:"6px 10px",background:"rgba(192,57,43,.08)",border:"1px solid rgba(192,57,43,.25)",borderRadius:5}}>⚠️ {errors.time}</div>}
 
-          <button className="btn btn-or" onClick={submitOrder} style={{marginTop:12,opacity:(!orderTime?.day||(!orderTime?.time&&!orderTime?.isSpecial))?.5:1}}>✅ Submit Order — ${cartTotal}</button>
+          <button className="btn btn-or" onClick={()=>{ if(!validate()) return; setSubmitModal(true); }} style={{marginTop:12,opacity:(!orderTime?.day||(!orderTime?.time&&!orderTime?.isSpecial))?.5:1}}>✅ Submit Order — ${cartTotal}</button>
           <div style={{height:20}}/>
+        </div>
+
+        {/* CONFIRM SUBMIT MODAL */}
+        {submitModal&&(
+          <div className="modal-overlay">
+            <div className="modal">
+              <div style={{textAlign:"center",fontSize:28,marginBottom:8}}>🍗</div>
+              <div className="modal-title">Ready to place your order?</div>
+              <div className="modal-body">
+                <div style={{marginBottom:8}}>Once submitted your order will appear in our system and you'll need to complete payment to confirm it.</div>
+                <div style={{background:"rgba(245,166,35,.06)",border:"1px solid rgba(245,166,35,.15)",borderRadius:6,padding:"8px 10px",fontSize:10,color:"var(--gr)"}}>
+                  {cart.map((item,i)=><div key={i}>{item.combo.label} — {item.flavorLabel} ×{item.qty}</div>)}
+                  <div style={{marginTop:4,color:"var(--or)",fontWeight:600}}>Total: ${cartTotal}</div>
+                  {orderTime?.day&&<div style={{marginTop:2,fontSize:9}}>⏱ {orderTime.day}{orderTime.time?` @ ${orderTime.time}`:""}</div>}
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button className="btn btn-ghost" onClick={()=>setSubmitModal(false)}>Go Back</button>
+                <button className="btn btn-or" onClick={()=>{ setSubmitModal(false); submitOrder(); }}>Yes, Submit! 🔥</button>
+              </div>
+            </div>
+          </div>
+        )}
         </div>
       </div>
     );
