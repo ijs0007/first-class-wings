@@ -954,16 +954,19 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               {payModal==="cashapp"&&(
                 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
                   <div style={{background:"#181818",border:"1.5px solid rgba(245,166,35,.3)",borderRadius:13,padding:22,maxWidth:320,width:"100%"}}>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"var(--or)",marginBottom:8,letterSpacing:1}}>📋 Cash App Note</div>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"var(--or)",marginBottom:8,letterSpacing:1}}>💚 Pay with Cash App</div>
                     <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#ccc",lineHeight:1.65,marginBottom:12}}>
-                      Cash App requires you to <strong style={{color:"#fff"}}>manually type</strong> in the <strong style={{color:"var(--or)"}}>For</strong> field — pasting isn't allowed there.<br/><br/>
-                      Your order code is short and easy to type:
+                      Cash App will open with the amount pre-filled. You'll need to <strong style={{color:"#fff"}}>manually type</strong> the following in the <strong style={{color:"var(--or)"}}>For</strong> field — pasting isn't allowed there.
                     </div>
-                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,color:"var(--or)",textAlign:"center",margin:"10px 0",padding:"10px",background:"rgba(245,166,35,.07)",borderRadius:8,border:"1px solid rgba(245,166,35,.18)",letterSpacing:3}}>
-                      {lastOrder.orderNum}
+                    {/* Full payment note — big and clear */}
+                    <div style={{background:"rgba(245,166,35,.07)",border:"1px solid rgba(245,166,35,.18)",borderRadius:8,padding:"12px",marginBottom:8,textAlign:"center"}}>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#666",letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Type this in the For field</div>
+                      <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,color:"var(--or)",letterSpacing:2}}>
+                        {lastOrder.orderNum} {lastOrder.firstName} ${lastOrder.total}
+                      </div>
                     </div>
-                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#666",textAlign:"center",marginBottom:16}}>
-                      Type this in the <strong style={{color:"var(--or)"}}>For</strong> field when you pay.
+                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#555",textAlign:"center",marginBottom:16}}>
+                      Amount <strong style={{color:"#fff"}}>${lastOrder.total}</strong> will be pre-filled when Cash App opens.
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       <a href={cashAppLink(settings.cashapp,lastOrder.total)} target="_blank" rel="noreferrer"
@@ -983,16 +986,20 @@ function CustomerView({openDayNames,openDates,settings,addOrder,showToast,cart,s
               {payModal==="zelle"&&(
                 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
                   <div style={{background:"#181818",border:"1.5px solid rgba(245,166,35,.3)",borderRadius:13,padding:22,maxWidth:320,width:"100%"}}>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"var(--or)",marginBottom:8,letterSpacing:1}}>📋 Zelle Note</div>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"var(--or)",marginBottom:8,letterSpacing:1}}>📱 Pay with Zelle</div>
                     <div style={{fontFamily:"'Oswald',sans-serif",fontSize:12,color:"#ccc",lineHeight:1.65,marginBottom:12}}>
                       Zelle's memo field <strong style={{color:"#fff"}}>may require manual typing</strong> depending on your bank — some banks allow paste, others don't.<br/><br/>
-                      Your order code is:
+                      Enter the following in the <strong style={{color:"var(--or)"}}>memo/note</strong> field:
                     </div>
-                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,color:"var(--or)",textAlign:"center",margin:"10px 0",padding:"10px",background:"rgba(245,166,35,.07)",borderRadius:8,border:"1px solid rgba(245,166,35,.18)",letterSpacing:3}}>
-                      {lastOrder.orderNum}
+                    {/* Full payment note — big and clear */}
+                    <div style={{background:"rgba(245,166,35,.07)",border:"1px solid rgba(245,166,35,.18)",borderRadius:8,padding:"12px",marginBottom:8,textAlign:"center"}}>
+                      <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#666",letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Type or paste in memo field</div>
+                      <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,color:"var(--or)",letterSpacing:2}}>
+                        {lastOrder.orderNum} {lastOrder.firstName} ${lastOrder.total}
+                      </div>
                     </div>
-                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:11,color:"#666",textAlign:"center",marginBottom:16}}>
-                      Enter this in the <strong style={{color:"var(--or)"}}>memo/note</strong> field when you pay.
+                    <div style={{fontFamily:"'Oswald',sans-serif",fontSize:10,color:"#555",textAlign:"center",marginBottom:16}}>
+                      Send <strong style={{color:"#fff"}}>${lastOrder.total}</strong> to <strong style={{color:"#fff"}}>{settings.zelle}</strong>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       <a href="https://zellepay.com/" target="_blank" rel="noreferrer"
