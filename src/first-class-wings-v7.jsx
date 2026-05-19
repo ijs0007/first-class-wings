@@ -83,6 +83,9 @@ function buildPayNote(o){ return `${o.orderNum} ${o.firstName} $${o.total}`; }
 function formatPhone(raw){ const d=raw.replace(/\D/g,"").slice(0,10); if(d.length<=3) return d; if(d.length<=6) return `(${d.slice(0,3)}) ${d.slice(3)}`; return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; }
 function cashAppLink(tag,amt){ return `https://cash.app/${tag.replace("$","")}/${amt}`; }
 function venmoLink(user,amt){ return `https://venmo.com/${user}?txn=pay&amount=${amt}`; }
+// Android needs ?body= while iPhone uses &body= for pre-filled SMS
+const isAndroid = /android/i.test(navigator.userAgent);
+function smsLink(phone,body){ return isAndroid ? `sms:${phone}?body=${encodeURIComponent(body)}` : `sms:${phone}&body=${encodeURIComponent(body)}`; }
 
 function generateTimeSlots(open,close,slotMins){
   const slots=[];
@@ -1799,7 +1802,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                   {/* CONFIRM BOX — TOP */}
                   {o.status==="new"&&(
                     <a className="confirm-box" style={{textDecoration:"none",display:"flex"}}
-                      href={`sms:${o.phone}&body=Hey ${o.firstName}! ✅ Your First Class Wings order ${o.orderNum} is confirmed! We'll text you when it's ready. 🍗👑`}
+                      href={smsLink(o.phone,`Hey ${o.firstName}! ✅ Your First Class Wings order ${o.orderNum} is confirmed! We'll text you when it's ready. 🍗👑`)}
                       onClick={()=>setTimeout(()=>confirmOrder(o.id),500)}>
                       <div className="cb-check"/>
                       <div><div className="cb-title">Confirm Order &amp; Notify Customer</div><div className="cb-sub">Tap to confirm payment for {o.orderNum} — opens pre-filled text to {o.phone}.</div></div>
@@ -1808,7 +1811,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
 
                   {/* CONTACT — Text first, Call second */}
                   <div style={{display:"flex",gap:6,marginBottom:7}}>
-                    <a className="abtn" href={`sms:${o.phone}&body=Hey ${o.firstName}! This is First Class Wings reaching out about your order ${o.orderNum}.`}
+                    <a className="abtn" href={smsLink(o.phone,`Hey ${o.firstName}! This is First Class Wings reaching out about your order ${o.orderNum}.`)}
                       style={{flex:1,textAlign:"center",background:"rgba(41,128,185,.1)",border:"1px solid rgba(41,128,185,.3)",color:"#78b8d8",textDecoration:"none"}}>
                       💬 Text
                     </a>
@@ -1825,14 +1828,14 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                         ↩ Unconfirm
                       </button>
                       <a className="abtn a-ok" style={{textDecoration:"none",textAlign:"center"}}
-                        href={`sms:${o.phone}&body=Hey ${o.firstName}! 🍳 We're making your First Class Wings right now! Order ${o.orderNum} is in the fryer. Won't be long! 🔥`}
+                        href={smsLink(o.phone,`Hey ${o.firstName}! 🍳 We're making your First Class Wings right now! Order ${o.orderNum} is in the fryer. Won't be long! 🔥`)}
                         onClick={()=>setTimeout(()=>upStatus(o.id,"cooking"),500)}>
                         🍳 Start Cooking
                       </a>
                     </>}
                     {o.status==="cooking"&&(
                       <a className="abtn a-ok" style={{textDecoration:"none",textAlign:"center",width:"100%",justifyContent:"center"}}
-                        href={`sms:${o.phone}&body=Hey ${o.firstName}! 🍗🔥 Your First Class Wings are READY for pickup! Order ${o.orderNum}%0A%0A📍 ${settings.pickupAddress}%0A%0ASee you soon! 👑`}
+                        href={smsLink(o.phone,`Hey ${o.firstName}! 🍗🔥 Your First Class Wings are READY for pickup! Order ${o.orderNum}\n\n📍 ${settings.pickupAddress}\n\nSee you soon! 👑`)}
                         onClick={()=>setTimeout(()=>upStatus(o.id,"ready"),500)}>
                         🍗 Mark Ready — Notify Customer
                       </a>
@@ -1990,12 +1993,12 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
                   {o.notes&&<div className="odet">📝 <em>{o.notes}</em></div>}
                   <div className="oprice">${o.total}</div>
                   <div style={{display:"flex",gap:6,marginTop:8}}>
-                    <a className="abtn" href={`sms:${o.phone}&body=Hey ${o.firstName}! Following up on your rain-checked order ${o.orderNum}. Ready to get your wings sorted? 🍗`}
+                    <a className="abtn" href={smsLink(o.phone,`Hey ${o.firstName}! Following up on your rain-checked order ${o.orderNum}. Ready to get your wings sorted? 🍗`)}
                       style={{flex:1,textAlign:"center",background:"rgba(41,128,185,.1)",border:"1px solid rgba(41,128,185,.3)",color:"#78b8d8",textDecoration:"none"}}>
                       💬 Follow Up
                     </a>
                     <a className="abtn a-ok" style={{flex:1,textAlign:"center",textDecoration:"none"}}
-                      href={`sms:${o.phone}&body=Hey ${o.firstName}! Great news — your First Class Wings order ${o.orderNum} is back on! We're on it. 🍗👑`}
+                      href={smsLink(o.phone,`Hey ${o.firstName}! Great news — your First Class Wings order ${o.orderNum} is back on! We're on it. 🍗👑`)}
                       onClick={()=>setTimeout(()=>upStatus(o.id,"confirmed"),500)}>
                       ✅ Restore Order
                     </a>
@@ -2232,7 +2235,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={()=>setUnconfirmModal(null)}>Cancel</button>
               <a className="btn btn-danger" style={{textDecoration:"none",textAlign:"center"}}
-                href={`sms:${unconfirmModal.phone}&body=Hey ${unconfirmModal.firstName}! Just a quick heads up — there's a small update on your order ${unconfirmModal.orderNum}. The owner will reach out to you shortly. 🍗`}
+                href={smsLink(unconfirmModal.phone,`Hey ${unconfirmModal.firstName}! Just a quick heads up — there's a small update on your order ${unconfirmModal.orderNum}. The owner will reach out to you shortly. 🍗`)}
                 onClick={()=>setTimeout(()=>{ upStatus(unconfirmModal.id,"new"); setUnconfirmModal(null); },400)}>
                 I Understand — Unconfirm
               </a>
@@ -2255,7 +2258,7 @@ function OwnerView({unlocked,pin,setPin,onLogin,onLogout,orders,newCt,confirmedC
             </div>
             <div className="modal-actions" style={{flexDirection:"column",gap:6}}>
               <a className="btn btn-blue" style={{textDecoration:"none",textAlign:"center"}}
-                href={`sms:${raincheckModal.phone}&body=Hey ${raincheckModal.firstName}! Your First Class Wings order has been rain-checked 🌧️%0A%0AOrder: ${raincheckModal.orderNum}%0AItems: ${raincheckModal.cartItems?.map(i=>`${i.combo.label} (${i.flavorLabel})`).join(", ")}%0ATotal: $${raincheckModal.total}%0A%0AYour payment is on file — just reorder anytime and reference this order number. We got you! 🍗👑`}
+                href={smsLink(raincheckModal.phone,`Hey ${raincheckModal.firstName}! Your First Class Wings order has been rain-checked 🌧️\n\nOrder: ${raincheckModal.orderNum}\nItems: ${raincheckModal.cartItems?.map(i=>`${i.combo.label} (${i.flavorLabel})`).join(", ")}\nTotal: $${raincheckModal.total}\n\nYour payment is on file — just reorder anytime and reference this order number. We got you! 🍗👑`)}
                 onClick={()=>{ setTimeout(()=>{ upStatus(raincheckModal.id,"raincheck"); setRaincheckModal(null); },500); }}>
                 📱 Text Customer & Rain Check
               </a>
@@ -2555,7 +2558,7 @@ function BlastTab({orders,showToast}){
               <div style={{fontSize:10,color:"var(--gr)",marginTop:1,fontFamily:"'JetBrains Mono',monospace"}}>{c.phone}</div>
             </div>
             {ready?(
-              <a href={`sms:${c.phone}&body=${encodeURIComponent(getFinalMsg(c.name?.split(" ")[0]||""))}`}
+              <a href={smsLink(c.phone,getFinalMsg(c.name?.split(" ")[0]||""))}
                 style={{textDecoration:"none",flexShrink:0}}>
                 <div style={{
                   background:"var(--or)",borderRadius:22,padding:"7px 14px",
